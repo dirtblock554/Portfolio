@@ -1150,6 +1150,9 @@ function ScrollIndicator({ hidden = false }) {
 
   const trackHeight = 150;
   const diamondPosition = scrollProgress * (trackHeight - 10);
+  
+  // Hide on mobile
+  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
 
   const handleTrackClick = (e) => {
     if (!trackRef.current) return;
@@ -1160,6 +1163,9 @@ function ScrollIndicator({ hidden = false }) {
     const docHeight = document.documentElement.scrollHeight - window.innerHeight;
     window.scrollTo({ top: progress * docHeight, behavior: "smooth" });
   };
+
+  // Don't render on mobile
+  if (isMobile) return null;
 
   return (
     <div
@@ -2432,6 +2438,14 @@ function AddAnimationButton({ onClick }) {
 
 // Hero Section
 function HeroSection() {
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 768);
+  
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   return (
     <section
       style={{
@@ -2440,7 +2454,7 @@ function HeroSection() {
         flexDirection: "column",
         justifyContent: "flex-start",
         alignItems: "center",
-        padding: "40px 24px 60px",
+        padding: isMobile ? "20px 16px 40px" : "40px 24px 60px",
         position: "relative",
         zIndex: 1,
         textAlign: "center",
@@ -2454,13 +2468,13 @@ function HeroSection() {
       <div 
         id="hero-eye"
         style={{ 
-          margin: "20px 0 10px 0",
+          margin: isMobile ? "10px 0 5px 0" : "20px 0 10px 0",
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
         }}
       >
-        <RiveEyeLarge size={300} />
+        <RiveEyeLarge size={isMobile ? 180 : 300} />
       </div>
 
       <div
@@ -2741,6 +2755,25 @@ function HeroSection() {
 
 // Portfolio Grid Section
 function PortfolioSection({ animations, onCardClick, isAdmin, onAddClick, onEditClick, onDeleteClick }) {
+  // Responsive column count
+  const [columnCount, setColumnCount] = useState(3);
+  
+  useEffect(() => {
+    const updateColumns = () => {
+      if (window.innerWidth <= 500) {
+        setColumnCount(1);
+      } else if (window.innerWidth <= 900) {
+        setColumnCount(2);
+      } else {
+        setColumnCount(3);
+      }
+    };
+    
+    updateColumns();
+    window.addEventListener('resize', updateColumns);
+    return () => window.removeEventListener('resize', updateColumns);
+  }, []);
+
   return (
     <section style={{ padding: "80px 24px 140px", backgroundColor: colors.cream, position: "relative", zIndex: 1 }}>
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "4px", backgroundColor: colors.coral }} />
@@ -2753,7 +2786,7 @@ function PortfolioSection({ animations, onCardClick, isAdmin, onAddClick, onEdit
         <h2
           style={{
             fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
-            fontSize: "32px",
+            fontSize: "clamp(24px, 5vw, 32px)",
             fontWeight: "bold",
             color: colors.charcoal,
             marginBottom: "20px",
@@ -2768,7 +2801,7 @@ function PortfolioSection({ animations, onCardClick, isAdmin, onAddClick, onEdit
           <GeometricBorder width={150} color={colors.charcoal} />
         </div>
 
-        <div style={{ columnCount: 3, columnGap: "24px" }}>
+        <div style={{ columnCount: columnCount, columnGap: "24px" }}>
           {isAdmin && (
             <div style={{ breakInside: "avoid", marginBottom: "24px" }}>
               <AddAnimationButton onClick={onAddClick} />
@@ -2797,13 +2830,13 @@ function AboutPage() {
   return (
     <div
       style={{
-        minHeight: "calc(100vh - 64px - 63px)", // Minimum height to fill viewport
+        minHeight: "auto", // Let content determine height
         paddingTop: "15px",
+        paddingBottom: "100px", // Room for scrolling past footer
         position: "relative",
         zIndex: 1,
         display: "flex",
         flexDirection: "column",
-        overflowY: "auto", // Allow scroll when content overflows
       }}
     >
       <section style={{ padding: "15px 24px", maxWidth: "1000px", margin: "0 auto", flex: 1, display: "flex", flexDirection: "column", width: "100%" }}>
@@ -2838,7 +2871,7 @@ function AboutPage() {
             alignItems: "center",
           }}
         >
-          <div style={{ position: "relative" }}>
+          <div style={{ position: "relative", maxWidth: "350px", margin: "0 auto" }}>
             <div style={{ position: "absolute", top: "-10px", left: "-10px", width: "30px", height: "30px", borderTop: `3px solid ${colors.coral}`, borderLeft: `3px solid ${colors.coral}` }} />
             <div style={{ position: "absolute", top: "-10px", right: "-10px", width: "30px", height: "30px", borderTop: `3px solid ${colors.coral}`, borderRight: `3px solid ${colors.coral}` }} />
             <div style={{ position: "absolute", bottom: "-10px", left: "-10px", width: "30px", height: "30px", borderBottom: `3px solid ${colors.coral}`, borderLeft: `3px solid ${colors.coral}` }} />
@@ -2933,13 +2966,14 @@ function AboutPage() {
           </div>
         </div>
 
-        {/* GET IN TOUCH Section - centered in remaining space */}
+        {/* GET IN TOUCH Section */}
         <div style={{ 
-          flex: 1, 
           display: "flex", 
           flexDirection: "column",
           justifyContent: "center", 
           alignItems: "center",
+          marginTop: "40px",
+          paddingBottom: "20px",
         }}>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "stretch" }}>
             <h3
@@ -2957,7 +2991,7 @@ function AboutPage() {
               GET IN TOUCH
             </h3>
 
-            <div style={{ display: "flex", justifyContent: "space-between", gap: "32px" }}>
+            <div style={{ display: "flex", justifyContent: "center", gap: "24px", flexWrap: "wrap" }}>
               <SocialBox href="#" icon={<Mail size={24} />} label="EMAIL" copyText={portfolioData.email} />
               <SocialBox href={portfolioData.linkedin} icon={<Linkedin size={24} />} label="LINKEDIN" external />
               <SocialBox href={portfolioData.instagram} icon={<Instagram size={24} />} label="INSTAGRAM" external />
