@@ -27,6 +27,7 @@ const eyeStateManager = {
   mouseX: -1,
   mouseY: -1,
   isMouseOnPage: false,
+  isMobile: typeof window !== 'undefined' && (window.innerWidth <= 768 || 'ontouchstart' in window),
   instances: [],
   isRunning: false,
   blinkTimeoutId: null,
@@ -122,8 +123,11 @@ const eyeStateManager = {
     
     const now = Date.now();
     
-    // Always track mouse if mouse is on page
-    if (this.isMouseOnPage && this.mouseX >= 0) {
+    // On mobile, always use idle mode (no mouse tracking)
+    // On desktop, track mouse if mouse is on page
+    const shouldTrackMouse = !this.isMobile && this.isMouseOnPage && this.mouseX >= 0;
+    
+    if (shouldTrackMouse) {
       const mouseTarget = this.getMouseLookTarget();
       this.targetLookX = mouseTarget.x;
       this.targetLookY = mouseTarget.y;
@@ -175,6 +179,10 @@ const eyeStateManager = {
       });
       window.addEventListener('focus', () => {
         this.isMouseOnPage = true;
+      });
+      // Update mobile flag on resize
+      window.addEventListener('resize', () => {
+        this.isMobile = window.innerWidth <= 768 || 'ontouchstart' in window;
       });
       this.mouseListenerAdded = true;
     }
@@ -285,6 +293,8 @@ function RiveEye({ size = 60 }) {
   // Container is smaller for layout, eye overflows visually
   const containerHeight = size * 0.6; // Container is 60% of eye height
   const containerWidth = size * 1.2;  // Container is 60% of eye width
+  const eyeWidth = size * 2;
+  const eyeHeight = size;
   
   return (
     <div style={{ 
@@ -299,21 +309,24 @@ function RiveEye({ size = 60 }) {
       {!isLoaded && (
         <div style={{ 
           position: "absolute",
-          transform: "translate(-50%, -50%)",
           top: "50%",
           left: "50%",
+          transform: "translate(-50%, -50%)",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
         }}>
-          <EyeLogo size={size * 2} />
+          <EyeLogo size={eyeWidth * 0.5} />
         </div>
       )}
       <canvas
         ref={canvasRef}
-        width={size * 2}
-        height={size}
+        width={eyeWidth}
+        height={eyeHeight}
         style={{
           position: "absolute",
-          width: size * 2,
-          height: size,
+          width: eyeWidth,
+          height: eyeHeight,
           opacity: isLoaded ? 1 : 0,
           transition: "opacity 0.3s ease",
           top: "50%",
@@ -433,6 +446,8 @@ function RiveEyeLarge({ size = 180 }) {
   // Container is smaller for layout, eye overflows visually
   const containerHeight = size * 0.5; // Container is 50% of eye height
   const containerWidth = size * 1.0;  // Container is 50% of eye width
+  const eyeWidth = size * 2;
+  const eyeHeight = size;
   
   return (
     <div style={{ 
@@ -448,21 +463,24 @@ function RiveEyeLarge({ size = 180 }) {
       {!isLoaded && (
         <div style={{ 
           position: "absolute",
-          transform: "translate(-50%, -50%)",
           top: "50%",
           left: "50%",
+          transform: "translate(-50%, -50%)",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
         }}>
-          <EyeLogoLarge size={size * 2} />
+          <EyeLogoLarge size={eyeWidth * 0.5} />
         </div>
       )}
       <canvas
         ref={canvasRef}
-        width={size * 2}
-        height={size}
+        width={eyeWidth}
+        height={eyeHeight}
         style={{
           position: "absolute",
-          width: size * 2,
-          height: size,
+          width: eyeWidth,
+          height: eyeHeight,
           opacity: isLoaded ? 1 : 0,
           transition: "opacity 0.5s ease",
           background: "transparent",
@@ -630,13 +648,23 @@ function WavyBackground() {
           x: e.touches[0].clientX,
           y: e.touches[0].clientY,
         };
+      }
+    };
+    
+    const handleTouchStart = (e) => {
+      if (e.touches && e.touches[0]) {
+        mouseRef.current = {
+          x: e.touches[0].clientX,
+          y: e.touches[0].clientY,
+        };
+        // Only add ripple on tap, not while scrolling
         if (touchPointsRef.current.length > 5) {
           touchPointsRef.current.shift();
         }
         touchPointsRef.current.push({
           x: e.touches[0].clientX,
           y: e.touches[0].clientY,
-          strength: 1,
+          strength: 0.5, // Reduced strength on mobile
           time: Date.now(),
         });
       }
@@ -644,8 +672,8 @@ function WavyBackground() {
 
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("click", handleClick);
-    window.addEventListener("touchstart", handleTouch);
-    window.addEventListener("touchmove", handleTouch);
+    window.addEventListener("touchstart", handleTouchStart, { passive: true });
+    window.addEventListener("touchmove", handleTouch, { passive: true });
     window.addEventListener("resize", updateCanvasSize);
 
     const getWaveY = (x, baseY, time, waveIndex, width, height) => {
@@ -738,7 +766,7 @@ function WavyBackground() {
       }
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("click", handleClick);
-      window.removeEventListener("touchstart", handleTouch);
+      window.removeEventListener("touchstart", handleTouchStart);
       window.removeEventListener("touchmove", handleTouch);
       window.removeEventListener("resize", updateCanvasSize);
     };
@@ -1451,8 +1479,12 @@ function Navigation({ currentPage, setCurrentPage, showNavEye = false, showNavNa
         <RiveEye size={70} />
       </button>
       
-      {/* Name in center - thick chunky font */}
+      {/* Name in center - thick chunky font - CLICKABLE */}
       <div
+        onClick={() => {
+          if (onEyeClick) onEyeClick();
+          setCurrentPage("home");
+        }}
         style={{
           flex: 1,
           display: "flex",
@@ -1463,6 +1495,8 @@ function Navigation({ currentPage, setCurrentPage, showNavEye = false, showNavNa
           transform: showNavName ? "translateY(0)" : "translateY(-10px)",
           transition: "opacity 0.4s ease, transform 0.4s ease",
           overflow: "hidden",
+          cursor: showNavName ? "pointer" : "default",
+          pointerEvents: showNavName ? "auto" : "none",
         }}
       >
         {/* Load Notable font */}
@@ -1472,10 +1506,10 @@ function Navigation({ currentPage, setCurrentPage, showNavEye = false, showNavNa
         <span
           style={{
             fontFamily: "'Notable', sans-serif",
-            fontSize: "32px",
+            fontSize: "clamp(20px, 5vw, 32px)", // Responsive font size
             fontWeight: "400",
             color: colors.coral,
-            letterSpacing: "2px",
+            letterSpacing: "clamp(1px, 0.5vw, 2px)", // Responsive letter spacing
             whiteSpace: "nowrap",
             lineHeight: 1,
           }}
@@ -2763,27 +2797,28 @@ function AboutPage() {
   return (
     <div
       style={{
-        height: "calc(100vh - 64px - 63px)", // viewport minus nav and footer exactly
+        minHeight: "calc(100vh - 64px - 63px)", // Minimum height to fill viewport
         paddingTop: "15px",
         position: "relative",
         zIndex: 1,
         display: "flex",
         flexDirection: "column",
-        overflow: "hidden",
+        overflowY: "auto", // Allow scroll when content overflows
       }}
     >
       <section style={{ padding: "15px 24px", maxWidth: "1000px", margin: "0 auto", flex: 1, display: "flex", flexDirection: "column", width: "100%" }}>
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: "10px" }}>
-          <GeometricBorder width={200} />
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: "15px" }}>
+          <GeometricBorder width={Math.min(200, window.innerWidth - 80)} />
         </div>
 
         <h1
           style={{
             fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
-            fontSize: "38px",
+            fontSize: "clamp(28px, 6vw, 38px)", // Responsive title
             fontWeight: "bold",
             color: colors.coral,
-            marginBottom: "10px",
+            marginBottom: "15px",
+            marginTop: "0",
             letterSpacing: "4px",
             textAlign: "center",
           }}
@@ -2792,7 +2827,7 @@ function AboutPage() {
         </h1>
 
         <div style={{ display: "flex", justifyContent: "center", marginBottom: "25px" }}>
-          <GeometricBorder width={200} />
+          <GeometricBorder width={Math.min(200, window.innerWidth - 80)} />
         </div>
 
         <div
