@@ -94,7 +94,7 @@ const eyeStateManager = {
   
   getMouseLookTarget() {
     const x = (this.mouseX / window.innerWidth) * 100;
-    const y = (this.mouseY / window.innerHeight) * 100;
+    const y = 100 - (this.mouseY / window.innerHeight) * 100; // Invert Y axis
     return {
       x: Math.max(10, Math.min(90, x)),
       y: Math.max(10, Math.min(90, y))
@@ -1354,7 +1354,7 @@ function Navigation({ currentPage, setCurrentPage, showNavEye = false, showNavNa
         justifyContent: "space-between",
         alignItems: "center",
         zIndex: 100,
-        minHeight: "48px",
+        minHeight: "70px",
       }}
     >
       <button
@@ -1375,7 +1375,7 @@ function Navigation({ currentPage, setCurrentPage, showNavEye = false, showNavNa
         }}
         title="Back to Top"
       >
-        <RiveEye size={45} />
+        <RiveEye size={55} />
       </button>
       
       {/* Name in center - thick chunky font */}
@@ -2353,7 +2353,7 @@ function HeroSection() {
           alignItems: "center",
         }}
       >
-        <RiveEyeLarge size={150} />
+        <RiveEyeLarge size={300} />
       </div>
 
       <div
