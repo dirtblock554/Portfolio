@@ -79,8 +79,8 @@ const eyeStateManager = {
   
   getMouseLookTarget() {
     // Find the average center of all eye instances
-    let avgCenterX = window.innerWidth / 2;
-    let avgCenterY = window.innerHeight / 2;
+    let avgCenterX = 0;
+    let avgCenterY = 0;
     let count = 0;
     
     this.instances.forEach(instance => {
@@ -93,8 +93,12 @@ const eyeStateManager = {
     });
     
     if (count > 0) {
-      avgCenterX = avgCenterX / (count + 1);
-      avgCenterY = avgCenterY / (count + 1);
+      avgCenterX = avgCenterX / count;
+      avgCenterY = avgCenterY / count;
+    } else {
+      // Fallback to screen center if no instances
+      avgCenterX = window.innerWidth / 2;
+      avgCenterY = window.innerHeight / 2;
     }
     
     // Calculate direction from eye center to mouse
