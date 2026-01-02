@@ -24,17 +24,16 @@ const eyeStateManager = {
   idleTargetX: 50,
   idleTargetY: 50,
   nextIdleChange: 0,
-  mouseX: 0,
-  mouseY: 0,
-  isMouseNearby: false,
+  mouseX: -1,
+  mouseY: -1,
+  isMouseOnPage: false,
   instances: [],
   isRunning: false,
   blinkTimeoutId: null,
   
   // Easing speeds
-  EASING_SPEED: 0.35,
-  IDLE_EASING_SPEED: 0.15,
-  MOUSE_DETECTION_RADIUS: 400,
+  EASING_SPEED: 0.25,
+  IDLE_EASING_SPEED: 0.12,
   
   lerp(current, target, speed) {
     return current + (target - current) * speed;
@@ -78,26 +77,39 @@ const eyeStateManager = {
     }, delay);
   },
   
-  checkMouseProximity() {
-    let minDist = Infinity;
+  getMouseLookTarget() {
+    // Find the average center of all eye instances
+    let avgCenterX = window.innerWidth / 2;
+    let avgCenterY = window.innerHeight / 2;
+    let count = 0;
+    
     this.instances.forEach(instance => {
       if (instance.canvasRef && instance.canvasRef.current) {
         const rect = instance.canvasRef.current.getBoundingClientRect();
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-        const dist = Math.hypot(this.mouseX - centerX, this.mouseY - centerY);
-        minDist = Math.min(minDist, dist);
+        avgCenterX += rect.left + rect.width / 2;
+        avgCenterY += rect.top + rect.height / 2;
+        count++;
       }
     });
-    return minDist < this.MOUSE_DETECTION_RADIUS;
-  },
-  
-  getMouseLookTarget() {
-    const x = (this.mouseX / window.innerWidth) * 100;
-    const y = 100 - (this.mouseY / window.innerHeight) * 100; // Invert Y axis
+    
+    if (count > 0) {
+      avgCenterX = avgCenterX / (count + 1);
+      avgCenterY = avgCenterY / (count + 1);
+    }
+    
+    // Calculate direction from eye center to mouse
+    const deltaX = this.mouseX - avgCenterX;
+    const deltaY = this.mouseY - avgCenterY;
+    
+    // Map to 0-100 range with good sensitivity
+    // 50 is center, movement of ~300px should reach the edges (0 or 100)
+    const sensitivity = 0.18;
+    const x = 50 + (deltaX * sensitivity);
+    const y = 50 + (deltaY * sensitivity); // Mouse below eye = positive delta = higher Y
+    
     return {
-      x: Math.max(10, Math.min(90, x)),
-      y: Math.max(10, Math.min(90, y))
+      x: Math.max(0, Math.min(100, x)),
+      y: Math.max(0, Math.min(100, y))
     };
   },
   
@@ -105,9 +117,9 @@ const eyeStateManager = {
     if (!this.isRunning) return;
     
     const now = Date.now();
-    this.isMouseNearby = this.checkMouseProximity();
     
-    if (this.isMouseNearby) {
+    // Always track mouse if mouse is on page
+    if (this.isMouseOnPage && this.mouseX >= 0) {
       const mouseTarget = this.getMouseLookTarget();
       this.targetLookX = mouseTarget.x;
       this.targetLookY = mouseTarget.y;
@@ -145,6 +157,20 @@ const eyeStateManager = {
       document.addEventListener('mousemove', (e) => {
         this.mouseX = e.clientX;
         this.mouseY = e.clientY;
+        this.isMouseOnPage = true;
+      });
+      document.addEventListener('mouseleave', () => {
+        this.isMouseOnPage = false;
+      });
+      document.addEventListener('mouseenter', () => {
+        this.isMouseOnPage = true;
+      });
+      // Also track when window loses focus
+      window.addEventListener('blur', () => {
+        this.isMouseOnPage = false;
+      });
+      window.addEventListener('focus', () => {
+        this.isMouseOnPage = true;
       });
       this.mouseListenerAdded = true;
     }
@@ -252,10 +278,27 @@ function RiveEye({ size = 60 }) {
     return <EyeLogo size={size * 2} />;
   }
 
+  // Container is smaller for layout, eye overflows visually
+  const containerHeight = size * 0.6; // Container is 60% of eye height
+  const containerWidth = size * 1.2;  // Container is 60% of eye width
+  
   return (
-    <div style={{ position: "relative", width: size * 2, height: size }}>
+    <div style={{ 
+      position: "relative", 
+      width: containerWidth, 
+      height: containerHeight,
+      overflow: "visible",
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+    }}>
       {!isLoaded && (
-        <div style={{ position: "absolute", top: 0, left: 0 }}>
+        <div style={{ 
+          position: "absolute",
+          transform: "translate(-50%, -50%)",
+          top: "50%",
+          left: "50%",
+        }}>
           <EyeLogo size={size * 2} />
         </div>
       )}
@@ -264,10 +307,14 @@ function RiveEye({ size = 60 }) {
         width={size * 2}
         height={size}
         style={{
+          position: "absolute",
           width: size * 2,
           height: size,
           opacity: isLoaded ? 1 : 0,
           transition: "opacity 0.3s ease",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
         }}
       />
     </div>
@@ -379,10 +426,28 @@ function RiveEyeLarge({ size = 180 }) {
     return <EyeLogoLarge size={size * 2} />;
   }
 
+  // Container is smaller for layout, eye overflows visually
+  const containerHeight = size * 0.5; // Container is 50% of eye height
+  const containerWidth = size * 1.0;  // Container is 50% of eye width
+  
   return (
-    <div style={{ position: "relative", width: size * 2, height: size, background: "transparent" }}>
+    <div style={{ 
+      position: "relative", 
+      width: containerWidth, 
+      height: containerHeight, 
+      background: "transparent",
+      overflow: "visible",
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+    }}>
       {!isLoaded && (
-        <div style={{ position: "absolute", top: 0, left: 0 }}>
+        <div style={{ 
+          position: "absolute",
+          transform: "translate(-50%, -50%)",
+          top: "50%",
+          left: "50%",
+        }}>
           <EyeLogoLarge size={size * 2} />
         </div>
       )}
@@ -391,11 +456,15 @@ function RiveEyeLarge({ size = 180 }) {
         width={size * 2}
         height={size}
         style={{
+          position: "absolute",
           width: size * 2,
           height: size,
           opacity: isLoaded ? 1 : 0,
           transition: "opacity 0.5s ease",
           background: "transparent",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
         }}
       />
     </div>
@@ -1354,7 +1423,7 @@ function Navigation({ currentPage, setCurrentPage, showNavEye = false, showNavNa
         justifyContent: "space-between",
         alignItems: "center",
         zIndex: 100,
-        minHeight: "70px",
+        minHeight: "50px",
       }}
     >
       <button
@@ -1375,7 +1444,7 @@ function Navigation({ currentPage, setCurrentPage, showNavEye = false, showNavNa
         }}
         title="Back to Top"
       >
-        <RiveEye size={55} />
+        <RiveEye size={70} />
       </button>
       
       {/* Name in center - thick chunky font */}
