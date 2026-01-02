@@ -322,11 +322,18 @@ function RiveEyeLarge({ size = 180 }) {
           bytes[i] = binaryString.charCodeAt(i);
         }
 
+        // Clear the canvas to transparent before Rive renders
+        const ctx = canvasRef.current.getContext('2d');
+        if (ctx) {
+          ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+        }
+
         const r = new window.rive.Rive({
           buffer: bytes.buffer,
           canvas: canvasRef.current,
           autoplay: true,
           stateMachines: "State Machine 1",
+          useOffscreenRenderer: true,
           onLoad: () => {
             if (isMounted) {
               setIsLoaded(true);
@@ -373,7 +380,7 @@ function RiveEyeLarge({ size = 180 }) {
   }
 
   return (
-    <div style={{ position: "relative", width: size * 2, height: size }}>
+    <div style={{ position: "relative", width: size * 2, height: size, background: "transparent" }}>
       {!isLoaded && (
         <div style={{ position: "absolute", top: 0, left: 0 }}>
           <EyeLogoLarge size={size * 2} />
@@ -388,6 +395,7 @@ function RiveEyeLarge({ size = 180 }) {
           height: size,
           opacity: isLoaded ? 1 : 0,
           transition: "opacity 0.5s ease",
+          background: "transparent",
         }}
       />
     </div>
@@ -2345,7 +2353,7 @@ function HeroSection() {
           alignItems: "center",
         }}
       >
-        <RiveEyeLarge size={100} />
+        <RiveEyeLarge size={150} />
       </div>
 
       <div
