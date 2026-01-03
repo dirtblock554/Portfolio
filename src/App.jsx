@@ -13,7 +13,7 @@ const colors = {
 // ============================================
 // RIVE EYE ANIMATION (Base64 encoded eyeball.riv)
 // ============================================
-const RIVE_EYE_BASE64 = "UklWRQcA84ByxAGmAeoEzATyBLYE5wSYBKAB7AHsBKUB6QStBPEE5gSqBO4DpwHrBOgEygTlBMcEAEgAAAAAAAAAAAAAAAQAAAAAAAAAAAAAABcAswOtBAVFeWVWTQCvA60EBWxvb2tYAK8DrQQFbG9va1kArwOtBAVibGluawC1A7YEAAQISW5zdGFuY2UAugOqBAIAugOqBAEAugOqBAAAAcQBAAcAAPpDCAAA+kPuAwrsAQDHBAAECEFydGJvYXJkAAIFAA0AwHlDDgDAVkMAvwPKBA3MBAIAAAACBQEAvwPKBA7MBAIAAQADBQINAACAvg4AAIA+AAQFAw0AAIA+DgAAgL4UAACRQhUAAJFCABIFFSUTNNX/ABYFFioAAErCIgAASkIAEwUGJgAAAP8AEwUGJgAAAP8nAACAPwAqBQNcCwCkAwUA5QQB5gQB5wQB6AQB6QQB6gQB6wQB7AQB8QQB8gQBAAMFABBmZmY/DQAAyEEOAABXQwAQBQsgAQAFBQwAIwUMGAAAekMZLAGlwlMAgBFDAAUFDBgAAPpDACMFDBgAAHpDGQAApUJS2w9JwFMAgBFDABIFFyUAAAD/ABYFGCoAAAA1IQAAlroiAAD6QyMAAJa6ABMFEibC0+v/ABMFEia/0eb/JwAAgD8AGAUDLwAAZEIAFAUDABgFCy8AAKhBMQEAFAULABwAHzcKVGltZWxpbmUgMQAfNwpCbGluayBpZGxlABkzDgAaNRgAHkQBRgAAekMAHkMURAFGAAB6QwAaNRkAHkQBRiwBpcIAHkMURAFGLAGlwgAfNwVCbGluawAZMw4AGjUYAB5EAUYAAHpDAB5DC0QCRRlGCwB6QwAeQxpEAUYAAHpDABo1GQAeRAFGLAGlwgAeQwtEAkUZRtT+okIAHkMaRAFGLAGlwgAfNwhMb29rRG93bgAZMwEAGjUOAB5EAUYAYJNDAB83Ckxvb2tDZW50ZXIAGTMBABo1DgAeRAFGAMBWQwAfNwZMb29rVXAAGTMBABo1DgAeRAFGAMAGQwAfNwlMb29rUmlnaHQAGTMBABo1DQAeRAFGAADNQwAfNwtMb29rQ2VudGVyWAAZMwEAGjUNAB5EAUYAwHlDAB83CUxvb2sgTGVmdAAZMwEAGjUNAB5EAUYAALRCADU3D1N0YXRlIE1hY2hpbmUgMQA6igEFQmxpbmsAO4oBCFRyYWNraW5nADiKAQVMb29rWQA4igEFTG9va1gAOYoBBUJsaW5rAEAAPZUBAQBBlwEDAESbAQAAPgA9lQECAEGXAQGYAQSgAfQDAD8AQZcBAwA5igEHTGF5ZXIgMQA+AEyYBAKnAQMAS6UBCABLpQEHpgEAAEhCAEulAQamAQAAyEIAQAA/AEGXAQEAOYoBB0xheWVyIDMATJgEAqcBAgBLpQEFAEulAQSmAQAASEIAS6UBA6YBAADIQgBAAD4APwBBlwEAAA==";
+const RIVE_EYE_BASE64 = "UklWRQcA84ByxAGmAeoEzATyBLYE5wSYBKAB7AHsBKUB6QStBPEE5gSqBO4DpwHrBOgEygTlBMcEAEgAAAAAAAAAAAAAAAQAAAAAAAAAAAAAABcAswOtBAVFeWVWTQCvA60EBWxvb2tYAK8DrQQFbG9va1kArwOtBAVibGluawC1A7YEAAQISW5zdGFuY2UAugOqBAAAugOqBAEAugOqBAIAAcQBAAcAAPpDCAAA+kPuAxTsAQDHBAAECEFydGJvYXJkAAIFAA0AwHlDDgDAVkMAvwPKBA3MBAIAAAACBQEAvwPKBA7MBAIAAQADBQINAACAvg4AAIA+AAQFAw0AAIA+DgAAgL4UAACRQhUAAJFCABIFFSVTd/z/ABYFFioAAErCIgAASkIAEwUGJhwcHP8AEwUGJhwcHP8nAACAPwAqBQNcCgADBQAQZmZmPw0AAMhBDgAAV0MAEAUKIAEABQULACMFCxgAAHpDGSwBpcJTAIARQwAFBQsYAAD6QwAjBQsYAAB6QxkAAKVCUtsPScBTAIARQwASBRclHBwc/wAWBRgqAAAANSEAAJa6IgAA+kMjAACWugATBREm3ejv/wATBREmv9Hm/ycAAIA/AKQDBQDlBAHmBAHnBAHoBAHpBAHqBAHrBAHsBAHxBAHyBAEAGAUDLwAAZEIAFAUDABgFCi8AAKhBMQEAFAUKABwAHzcKVGltZWxpbmUgMQAfNwpCbGluayBpZGxlABkzDQAaNRgAHkQBRgAAekMAHkMURAFGAAB6QwAaNRkAHkQBRiwBpcIAHkMURAFGLAGlwgAfNwVCbGluawAZMw0AGjUYAB5EAUYAAHpDAB5DC0QCRRlGCwB6QwAeQxpEAUYAAHpDABo1GQAeRAFGLAGlwgAeQwtEAkUZRtT+okIAHkMaRAFGLAGlwgAfNwhMb29rRG93bgAZMwEAGjUOAB5EAUYAYJNDAB83Ckxvb2tDZW50ZXIAGTMBABo1DgAeRAFGAMBWQwAfNwZMb29rVXAAGTMBABo1DgAeRAFGAMAGQwAfNwlMb29rUmlnaHQAGTMBABo1DQAeRAFGAADNQwAfNwtMb29rQ2VudGVyWAAZMwEAGjUNAB5EAUYAwHlDAB83CUxvb2sgTGVmdAAZMwEAGjUNAB5EAUYAALRCADU3D1N0YXRlIE1hY2hpbmUgMQA6igEFQmxpbmsAO4oBCFRyYWNraW5nADiKAQVMb29rWQA4igEFTG9va1gAOYoBBUJsaW5rAD8AQZcBAQA9lQECAEGXAQOYAQSgAfQDAD4APZUBAQBBlwEBAESbAQAAQAA5igEHTGF5ZXIgMQA/AEGXAQIAQABMmAQCpwEDAEulAQgAS6UBB6YBAABIQgBLpQEGpgEAAMhCAD4AOYoBB0xheWVyIDMAPwBBlwEDAD4AQABMmAQCpwECAEulAQUAS6UBBKYBAABIQgBLpQEDpgEAAMhCAA==";
 
 // Global eye state manager (shared across all eye instances)
 const eyeStateManager = {
@@ -309,7 +309,7 @@ function RiveEye({ size = 60 }) {
       {!isLoaded && (
         <div style={{ 
           position: "absolute",
-          top: "50%",
+          top: "55%", // Match the canvas position
           left: "50%",
           transform: "translate(-50%, -50%)",
           display: "flex",
@@ -329,7 +329,7 @@ function RiveEye({ size = 60 }) {
           height: eyeHeight,
           opacity: isLoaded ? 1 : 0,
           transition: "opacity 0.3s ease",
-          top: "50%",
+          top: "55%", // Shifted down slightly for visual centering
           left: "50%",
           transform: "translate(-50%, -50%)",
         }}
@@ -1230,6 +1230,13 @@ function ScrollIndicator({ hidden = false }) {
 // Fixed Footer
 function Footer({ onAdminClick, isAdmin }) {
   const [emailCopied, setEmailCopied] = useState(false);
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 768);
+  
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   
   const handleEmailClick = (e) => {
     e.preventDefault();
@@ -1251,7 +1258,7 @@ function Footer({ onAdminClick, isAdmin }) {
         right: 0,
         backgroundColor: colors.charcoal,
         borderTop: `3px solid ${colors.coral}`,
-        padding: "20px 32px",
+        padding: isMobile ? "12px 16px" : "20px 32px",
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
@@ -1292,11 +1299,13 @@ function Footer({ onAdminClick, isAdmin }) {
           }
         `}
       </style>
-      <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-        <p style={{ color: colors.cream, fontSize: "14px", margin: 0, letterSpacing: "1px" }}>
+      
+      {/* Left side: Copyright + Lock */}
+      <div style={{ display: "flex", alignItems: "center", gap: isMobile ? "8px" : "16px" }}>
+        <p style={{ color: colors.cream, fontSize: isMobile ? "11px" : "14px", margin: 0, letterSpacing: "1px" }}>
           © 2024 Zach Foster. All rights reserved.
         </p>
-      <button
+        <button
           onClick={onAdminClick}
           style={{
             background: "none",
@@ -1314,7 +1323,10 @@ function Footer({ onAdminClick, isAdmin }) {
           )}
         </button>
       </div>
-      <div style={{ display: "flex", gap: "40px", alignItems: "center" }}>
+      
+      {/* Right side: Social icons */}
+      <div style={{ display: "flex", gap: isMobile ? "24px" : "40px", alignItems: "center" }}>
+        {/* Email button with copy feedback */}
         <div style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center" }}>
           <button
             onClick={handleEmailClick}
@@ -1534,10 +1546,20 @@ function AboutMeButton({ currentPage, setCurrentPage }) {
   const [isHovered, setIsHovered] = useState(false);
   const [showInitialBubble, setShowInitialBubble] = useState(true);
   const [isFadingOut, setIsFadingOut] = useState(false);
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 768);
   
   const isOnAboutPage = currentPage === "about";
   
   useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  
+  useEffect(() => {
+    // Only show timed bubble on desktop
+    if (isMobile) return;
+    
     let innerTimer;
     const timer = setTimeout(() => {
       setIsFadingOut(true);
@@ -1550,9 +1572,9 @@ function AboutMeButton({ currentPage, setCurrentPage }) {
       clearTimeout(timer);
       if (innerTimer) clearTimeout(innerTimer);
     };
-  }, []);
+  }, [isMobile]);
   
-  const showBubble = (isHovered || showInitialBubble) && !isOnAboutPage;
+  const showBubble = !isMobile && (isHovered || showInitialBubble) && !isOnAboutPage;
   
   return (
     <div 
@@ -1562,6 +1584,9 @@ function AboutMeButton({ currentPage, setCurrentPage }) {
         opacity: isOnAboutPage ? 0 : 1,
         pointerEvents: isOnAboutPage ? "none" : "auto",
         transition: "opacity 0.3s ease",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
       }}
     >
       {/* Keyframe animations */}
@@ -1581,7 +1606,7 @@ function AboutMeButton({ currentPage, setCurrentPage }) {
         `}
       </style>
       
-      {/* Speech bubble */}
+      {/* Speech bubble - desktop only */}
       {showBubble && (
         <div
           style={{
@@ -1643,6 +1668,22 @@ function AboutMeButton({ currentPage, setCurrentPage }) {
       >
         <PersonIcon size={36} color={isHovered ? colors.cream : colors.coral} />
       </button>
+      
+      {/* Mobile label beneath icon */}
+      {isMobile && !isOnAboutPage && (
+        <span
+          style={{
+            fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+            fontSize: "8px",
+            fontWeight: "bold",
+            color: colors.cream,
+            letterSpacing: "1px",
+            marginTop: "2px",
+          }}
+        >
+          ABOUT
+        </span>
+      )}
     </div>
   );
 }
@@ -2839,7 +2880,7 @@ function AboutPage() {
         flexDirection: "column",
       }}
     >
-      <section style={{ padding: "15px 24px", maxWidth: "1000px", margin: "0 auto", flex: 1, display: "flex", flexDirection: "column", width: "100%" }}>
+      <section style={{ padding: "15px 24px", maxWidth: "1000px", margin: "0 auto", flex: 1, display: "flex", flexDirection: "column", width: "100%", boxSizing: "border-box", overflow: "hidden" }}>
         <div style={{ display: "flex", justifyContent: "center", marginBottom: "15px" }}>
           <GeometricBorder width={Math.min(200, window.innerWidth - 80)} />
         </div>
@@ -2869,6 +2910,7 @@ function AboutPage() {
             gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
             gap: "32px",
             alignItems: "center",
+            padding: "0 10px", // Extra padding to account for shadow offset
           }}
         >
           <div style={{ position: "relative", maxWidth: "350px", margin: "0 auto" }}>
@@ -2974,24 +3016,24 @@ function AboutPage() {
           alignItems: "center",
           marginTop: "40px",
           paddingBottom: "20px",
+          width: "100%",
         }}>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "stretch" }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}>
             <h3
               style={{
                 fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
-                fontSize: "28px",
+                fontSize: "clamp(22px, 5vw, 28px)",
                 fontWeight: "bold",
                 color: colors.coral,
                 marginBottom: "20px",
                 letterSpacing: "6px",
                 textAlign: "center",
-                width: "100%",
               }}
             >
               GET IN TOUCH
             </h3>
 
-            <div style={{ display: "flex", justifyContent: "center", gap: "24px", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", justifyContent: "center", gap: "24px", flexWrap: "wrap", width: "100%" }}>
               <SocialBox href="#" icon={<Mail size={24} />} label="EMAIL" copyText={portfolioData.email} />
               <SocialBox href={portfolioData.linkedin} icon={<Linkedin size={24} />} label="LINKEDIN" external />
               <SocialBox href={portfolioData.instagram} icon={<Instagram size={24} />} label="INSTAGRAM" external />
