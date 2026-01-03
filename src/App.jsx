@@ -505,7 +505,7 @@ const portfolioData = {
   demoReelUrl: "https://www.youtube.com/embed/m1Cwt0VQ0ZU",
   about: {
     bio: "I'm Zach Foster, an animator and motion designer passionate about bringing ideas to life through movement. With a focus on storytelling and visual impact, I create animations that captivate and communicate.",
-    photoUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop",
+    photoUrl: "/self-portrait.png",
   },
 };
 
