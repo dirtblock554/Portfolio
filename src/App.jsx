@@ -41,7 +41,7 @@ const eyeStateManager = {
   mouseX: -1,
   mouseY: -1,
   isMouseOnPage: false,
-  isMobile: typeof window !== 'undefined' && (window.innerWidth <= 768 || 'ontouchstart' in window),
+  isMobile: typeof window !== 'undefined' && (window.innerWidth <= 768 || (navigator.maxTouchPoints > 0 && window.innerWidth <= 1024)),
   instances: [],
   isRunning: false,
   blinkTimeoutId: null,
@@ -54,6 +54,11 @@ const eyeStateManager = {
   
   registerInstance(instance) {
     this.instances.push(instance);
+    // Initialize the eye to center position immediately
+    if (instance.inputs) {
+      if (instance.inputs.LookX) instance.inputs.LookX.value = 50;
+      if (instance.inputs.LookY) instance.inputs.LookY.value = 50;
+    }
     if (!this.isRunning) {
       this.startAnimation();
     }
@@ -169,6 +174,15 @@ const eyeStateManager = {
   
   startAnimation() {
     this.isRunning = true;
+    // Reset to center position
+    this.currentLookX = 50;
+    this.currentLookY = 50;
+    this.targetLookX = 50;
+    this.targetLookY = 50;
+    this.idleTargetX = 50;
+    this.idleTargetY = 50;
+    this.nextIdleChange = 0;
+    
     this.update();
     this.scheduleNextBlink();
     
@@ -197,7 +211,7 @@ const eyeStateManager = {
       window.addEventListener('focus', handleMouseEnter);
       
       window.addEventListener('resize', () => {
-        this.isMobile = window.innerWidth <= 768 || 'ontouchstart' in window;
+        this.isMobile = window.innerWidth <= 768 || (navigator.maxTouchPoints > 0 && window.innerWidth <= 1024);
       });
       
       this.mouseListenerAdded = true;
@@ -2961,7 +2975,10 @@ function AboutPage({ isAdmin, photoUrl, onEditPhoto, onResetPhoto }) {
             gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
             gap: "32px",
             alignItems: "center",
+            justifyItems: "center",
             padding: "0 10px", // Extra padding to account for shadow offset
+            maxWidth: "800px",
+            margin: "0 auto",
           }}
         >
           <div style={{ position: "relative", maxWidth: "350px", margin: "0 auto" }}>
@@ -3026,7 +3043,7 @@ function AboutPage({ isAdmin, photoUrl, onEditPhoto, onResetPhoto }) {
           </div>
 
           {/* Mid-century styled content box */}
-          <div style={{ position: "relative" }}>
+          <div style={{ position: "relative", maxWidth: "400px", width: "100%" }}>
             {/* Main content container - glass effect */}
             <div
               style={{
