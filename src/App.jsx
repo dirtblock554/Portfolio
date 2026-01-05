@@ -41,7 +41,7 @@ const eyeStateManager = {
   mouseX: -1,
   mouseY: -1,
   isMouseOnPage: false,
-  isMobile: typeof window !== 'undefined' && (window.innerWidth <= 768 || 'ontouchstart' in window),
+  isMobile: typeof window !== 'undefined' && window.innerWidth <= 768,
   instances: [],
   isRunning: false,
   blinkTimeoutId: null,
@@ -85,10 +85,14 @@ const eyeStateManager = {
       // 20% chance of double blink
       const useDoubleBlink = Math.random() < 0.2;
       this.instances.forEach(instance => {
-        if (useDoubleBlink && instance.inputs?.DoubleBlink) {
-          instance.inputs.DoubleBlink.fire();
-        } else if (instance.inputs?.Blink) {
-          instance.inputs.Blink.fire();
+        if (instance.inputs) {
+          const doubleBlink = instance.inputs.DoubleBlink || instance.inputs.doubleBlink;
+          const blink = instance.inputs.Blink || instance.inputs.blink;
+          if (useDoubleBlink && doubleBlink) {
+            doubleBlink.fire();
+          } else if (blink) {
+            blink.fire();
+          }
         }
       });
       if (this.isRunning) {
@@ -130,6 +134,22 @@ const eyeStateManager = {
     const now = Date.now();
     const shouldTrackMouse = !this.isMobile && this.isMouseOnPage && this.mouseX >= 0;
     
+    // Debug log every 60 frames
+    if (!this._debugCounter) this._debugCounter = 0;
+    this._debugCounter++;
+    if (this._debugCounter % 60 === 0) {
+      console.log('Eye tracking:', { 
+        shouldTrackMouse, 
+        isMobile: this.isMobile, 
+        isMouseOnPage: this.isMouseOnPage, 
+        mouseX: this.mouseX,
+        mouseY: this.mouseY,
+        currentLookX: this.currentLookX,
+        currentLookY: this.currentLookY,
+        instances: this.instances.length
+      });
+    }
+    
     if (shouldTrackMouse && this.instances.length > 0) {
       // Use first instance's canvas for reference
       const firstCanvas = this.instances[0]?.canvasRef;
@@ -163,8 +183,11 @@ const eyeStateManager = {
     // Apply to all instances
     this.instances.forEach(instance => {
       if (instance.inputs) {
-        if (instance.inputs.LookX) instance.inputs.LookX.value = this.currentLookX;
-        if (instance.inputs.LookY) instance.inputs.LookY.value = this.currentLookY;
+        // Handle both LookX/lookX naming conventions
+        const lookXInput = instance.inputs.LookX || instance.inputs.lookX;
+        const lookYInput = instance.inputs.LookY || instance.inputs.lookY;
+        if (lookXInput) lookXInput.value = this.currentLookX;
+        if (lookYInput) lookYInput.value = this.currentLookY;
       }
     });
     
@@ -201,7 +224,7 @@ const eyeStateManager = {
       window.addEventListener('focus', handleMouseEnter);
       
       window.addEventListener('resize', () => {
-        this.isMobile = window.innerWidth <= 768 || 'ontouchstart' in window;
+        this.isMobile = window.innerWidth <= 768;
       });
       
       this.mouseListenerAdded = true;
@@ -266,7 +289,7 @@ function RiveEye({ size = 60 }) {
             const inputs = r.stateMachineInputs("State Machine 1");
             const inputMap = {};
             if (inputs) {
-              inputs.forEach(input => { inputMap[input.name] = input; });
+              inputs.forEach(input => { inputMap[input.name] = input; }); console.log('Rive inputs:', Object.keys(inputMap));
             }
             instanceRef.current.inputs = inputMap;
             eyeStateManager.registerInstance(instanceRef.current);
@@ -398,7 +421,7 @@ function RiveEyeLarge({ size = 180 }) {
             const inputs = r.stateMachineInputs("State Machine 1");
             const inputMap = {};
             if (inputs) {
-              inputs.forEach(input => { inputMap[input.name] = input; });
+              inputs.forEach(input => { inputMap[input.name] = input; }); console.log('Rive inputs:', Object.keys(inputMap));
             }
             instanceRef.current.inputs = inputMap;
             eyeStateManager.registerInstance(instanceRef.current);
