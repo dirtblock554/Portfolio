@@ -187,7 +187,8 @@ const eyeStateManager = {
         const lookXInput = instance.inputs.LookX || instance.inputs.lookX;
         const lookYInput = instance.inputs.LookY || instance.inputs.lookY;
         if (lookXInput) lookXInput.value = this.currentLookX;
-        if (lookYInput) lookYInput.value = this.currentLookY;
+        // Invert Y axis: Rive has LookUp=100, LookDown=0, but screen Y is opposite
+        if (lookYInput) lookYInput.value = 100 - this.currentLookY;
       }
     });
     
