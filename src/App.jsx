@@ -13,7 +13,7 @@ const colors = {
 // ============================================
 // RIVE EYE ANIMATION (Base64 encoded eyeball.riv)
 // ============================================
-const RIVE_EYE_BASE64 = "UklWRQcA84ByxAGmAeoEzATyBLYE5wSYBKAB7AHsBKUB6QStBPEE5gSqBO4DpwHrBOgEygTlBMcEAEgAAAAAAAAAAAAAAAQAAAAAAAAAAAAAABcAswOtBAVFeWVWTQCvA60EBWxvb2tYAK8DrQQFbG9va1kArwOtBAVibGluawC1A7YEAAQISW5zdGFuY2UAugOqBAAAugOqBAEAugOqBAIAAcQBAAcAAPpDCAAA+kPuAxTsAQDHBAAECEFydGJvYXJkAAIFAA0AwHlDDgDAVkMAvwPKBA3MBAIAAAACBQEAvwPKBA7MBAIAAQADBQINAACAvg4AAIA+AAQFAw0AAIA+DgAAgL4UAACRQhUAAJFCABIFFSVTd/z/ABYFFioAAErCIgAASkIAEwUGJhwcHP8AEwUGJhwcHP8nAACAPwAqBQNcCgADBQAQZmZmPw0AAMhBDgAAV0MAEAUKIAEABQULACMFCxgAAHpDGSwBpcJTAIARQwAFBQsYAAD6QwAjBQsYAAB6QxkAAKVCUtsPScBTAIARQwASBRclHBwc/wAWBRgqAAAANSEAAJa6IgAA+kMjAACWugATBREm3ejv/wATBREmv9Hm/ycAAIA/AKQDBQDlBAHmBAHnBAHoBAHpBAHqBAHrBAHsBAHxBAHyBAEAGAUDLwAAZEIAFAUDABgFCi8AAKhBMQEAFAUKABwAHzcKVGltZWxpbmUgMQAfNwpCbGluayBpZGxlABkzDQAaNRgAHkQBRgAAekMAHkMURAFGAAB6QwAaNRkAHkQBRiwBpcIAHkMURAFGLAGlwgAfNwVCbGluawAZMw0AGjUYAB5EAUYAAHpDAB5DC0QCRRlGCwB6QwAeQxpEAUYAAHpDABo1GQAeRAFGLAGlwgAeQwtEAkUZRtT+okIAHkMaRAFGLAGlwgAfNwhMb29rRG93bgAZMwEAGjUOAB5EAUYAYJNDAB83Ckxvb2tDZW50ZXIAGTMBABo1DgAeRAFGAMBWQwAfNwZMb29rVXAAGTMBABo1DgAeRAFGAMAGQwAfNwlMb29rUmlnaHQAGTMBABo1DQAeRAFGAADNQwAfNwtMb29rQ2VudGVyWAAZMwEAGjUNAB5EAUYAwHlDAB83CUxvb2sgTGVmdAAZMwEAGjUNAB5EAUYAALRCADU3D1N0YXRlIE1hY2hpbmUgMQA6igEFQmxpbmsAO4oBCFRyYWNraW5nADiKAQVMb29rWQA4igEFTG9va1gAOYoBBUJsaW5rAD8AQZcBAQA9lQECAEGXAQOYAQSgAfQDAD4APZUBAQBBlwEBAESbAQAAQAA5igEHTGF5ZXIgMQA/AEGXAQIAQABMmAQCpwEDAEulAQgAS6UBB6YBAABIQgBLpQEGpgEAAMhCAD4AOYoBB0xheWVyIDMAPwBBlwEDAD4AQABMmAQCpwECAEulAQUAS6UBBKYBAABIQgBLpQEDpgEAAMhCAA==";
+const RIVE_EYE_BASE64 = "UklWRQcA84ByxAGmAeoEzATyBLYE5wSYBOwB7ASSB6UB6QTLAa0E8QTmBKoE7gOnAesE6ATKBOUExwQASAAAAAAAAAAAAAAAFAAAAAAAAAAAAAAAAAAAABcAkQTLAQ5CbGFuayBTY3JpcHQgMpIHAQCRBMsBDkJsYW5rIFNjcmlwdCAxkgcBALMDrQQFRXllVk0ArwOtBAVsb29rWACvA60EBWxvb2tZAK8DrQQFYmxpbmsAtQO2BAAECEluc3RhbmNlALoDqgQAALoDqgQBALoDqgQCAAHEAQAHAAD6QwgAAPpD7gMU7AEAxwQABAhBcnRib2FyZAACBQANAMB5Qw4AwFZDAL8DygQNzAQCAAAAAgUBAL8DygQOzAQCAAEAAwUCDQAAgL4OAACAPgAEBQMNAACAPg4AAIC+FAAAkUIVAACRQgASBRUlU3f8/wAWBRYqAABKwiIAAEpCABMFBiYcHBz/ABMFBiYcHBz/JwAAgD8AKgUDXAoAAwUAEGZmZj8NAADIQQ4AAFdDABAFCiABAAUFCwAjBQsYAAB6QxksAaXCUwCAEUMABQULGAAA+kMAIwULGAAAekMZAAClQlLbD0nAUwCAEUMAEgUXJRwcHP8AFgUYKgAAADUhAACWuiIAAPpDIwAAlroAEwURJt3o7/8AEwURJr/R5v8nAACAPwCkAwUA5QQB5gQB5wQB6AQB6QQB6gQB6wQB7AQB8QQB8gQBABgFAy8AAGRCABQFAwAYBQovAACoQTEBABQFCgAcAB83CkJsaW5rIGlkbGUAGTMNABo1GAAeRAFGAAB6QwAeQxREAUYAAHpDABo1GQAeRAFGLAGlwgAeQxREAUYsAaXCAB83DGRvdWJsZSBibGluawAZMw0AGjUYAB5DBEQBRgAAekMAHkMLRAJFGUYLAHpDAB5DDUQCRRlGCwB6QwAeQxBEAUYAAHpDAB5DE0QCRRlGCwB6QwAeQxVEAkUZRgsAekMAHkMaRAFGAAB6QwAaNRkAHkMERAFGLAGlwgAeQwtEAkUZRtT+okIAHkMNRAJFGUbU/qJCAB5DEEQBRiwBpcIAHkMTRAJFGUbU/qJCAB5DFUQCRRlG1P6iQgAeQxpEAUYsAaXCAB83BUJsaW5rABkzDQAaNRgAHkQBRgAAekMAHkMLRAJFGUYLAHpDAB5DDUQCRRlGCwB6QwAeQxpEAUYAAHpDABo1GQAeRAFGLAGlwgAeQwtEAkUZRtT+okIAHkMNRAJFGUbU/qJCAB5DGkQBRiwBpcIAHzcITG9va0Rvd24AGTMBABo1DgAeRAFGAGCTQwAfNwpMb29rQ2VudGVyABkzAQAaNQ4AHkQBRgDAVkMAHzcGTG9va1VwABkzAQAaNQ4AHkQBRgDABkMAHzcJTG9va1JpZ2h0ABkzAQAaNQ0AHkQBRgAAzUMAHzcLTG9va0NlbnRlclgAGTMBABo1DQAeRAFGAMB5QwAfNwlMb29rIExlZnQAGTMBABo1DQAeRAFGAAC0QgA1Nw9TdGF0ZSBNYWNoaW5lIDEAOooBC0RvdWJsZUJsaW5rADqKAQVCbGluawA4igEFTG9va1mMAQAA4EEAOIoBBUxvb2tYjAEAAOBBADmKAQ9Ib3Jpem9udGFsIExvb2sATJgEAqcBAwBLpQEIAEulAQemAQAASEIAS6UBBqYBAADIQgA/AEGXAQAAQAA+ADmKAQ1WZXJ0aWNhbCBMb29rAD4AQAA/AEGXAQMATJgEAqcBAgBLpQEDAEulAQSmAQAASEIAS6UBBaYBAADIQgA5igEFQmxpbmsAPgBBlwEDAESbAQEAQZcBBABEmwEAAEAAPwA9lQECAD2VAQEA";
 
 // ============================================
 // RIVE EYE TRACKING SYSTEM
@@ -41,7 +41,7 @@ const eyeStateManager = {
   mouseX: -1,
   mouseY: -1,
   isMouseOnPage: false,
-  isMobile: typeof window !== 'undefined' && (window.innerWidth <= 768 || (navigator.maxTouchPoints > 0 && window.innerWidth <= 1024)),
+  isMobile: typeof window !== 'undefined' && (window.innerWidth <= 768 || 'ontouchstart' in window),
   instances: [],
   isRunning: false,
   blinkTimeoutId: null,
@@ -54,11 +54,6 @@ const eyeStateManager = {
   
   registerInstance(instance) {
     this.instances.push(instance);
-    // Initialize the eye to center position immediately
-    if (instance.inputs) {
-      if (instance.inputs.LookX) instance.inputs.LookX.value = 50;
-      if (instance.inputs.LookY) instance.inputs.LookY.value = 50;
-    }
     if (!this.isRunning) {
       this.startAnimation();
     }
@@ -87,8 +82,12 @@ const eyeStateManager = {
     if (!this.isRunning) return;
     const delay = 3000 + Math.random() * 4000;
     this.blinkTimeoutId = setTimeout(() => {
+      // 20% chance of double blink
+      const useDoubleBlink = Math.random() < 0.2;
       this.instances.forEach(instance => {
-        if (instance.inputs?.Blink) {
+        if (useDoubleBlink && instance.inputs?.DoubleBlink) {
+          instance.inputs.DoubleBlink.fire();
+        } else if (instance.inputs?.Blink) {
           instance.inputs.Blink.fire();
         }
       });
@@ -174,15 +173,6 @@ const eyeStateManager = {
   
   startAnimation() {
     this.isRunning = true;
-    // Reset to center position
-    this.currentLookX = 50;
-    this.currentLookY = 50;
-    this.targetLookX = 50;
-    this.targetLookY = 50;
-    this.idleTargetX = 50;
-    this.idleTargetY = 50;
-    this.nextIdleChange = 0;
-    
     this.update();
     this.scheduleNextBlink();
     
@@ -211,7 +201,7 @@ const eyeStateManager = {
       window.addEventListener('focus', handleMouseEnter);
       
       window.addEventListener('resize', () => {
-        this.isMobile = window.innerWidth <= 768 || (navigator.maxTouchPoints > 0 && window.innerWidth <= 1024);
+        this.isMobile = window.innerWidth <= 768 || 'ontouchstart' in window;
       });
       
       this.mouseListenerAdded = true;
@@ -1484,26 +1474,28 @@ function Navigation({ currentPage, setCurrentPage, showNavEye = false, showNavNa
         minHeight: "50px",
       }}
     >
-      <button
-        onClick={() => {
-          if (onEyeClick) onEyeClick();
-          setCurrentPage("home");
-        }}
-        style={{
-          background: "none",
-          border: "none",
-          cursor: "pointer",
-          padding: "4px",
-          opacity: showNavEye ? 1 : 0,
-          transform: showNavEye ? "scale(1)" : "scale(0.8)",
-          transition: "opacity 0.4s ease, transform 0.4s ease",
-          pointerEvents: showNavEye ? "auto" : "none",
-          flexShrink: 0,
-        }}
-        title="Back to Top"
-      >
-        <RiveEye size={70} />
-      </button>
+      {/* Left container - fixed width for balance */}
+      <div style={{ width: "80px", flexShrink: 0 }}>
+        <button
+          onClick={() => {
+            if (onEyeClick) onEyeClick();
+            setCurrentPage("home");
+          }}
+          style={{
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            padding: "4px",
+            opacity: showNavEye ? 1 : 0,
+            transform: showNavEye ? "scale(1)" : "scale(0.8)",
+            transition: "opacity 0.4s ease, transform 0.4s ease",
+            pointerEvents: showNavEye ? "auto" : "none",
+          }}
+          title="Back to Top"
+        >
+          <RiveEye size={70} />
+        </button>
+      </div>
       
       {/* Name in center - thick chunky font - CLICKABLE */}
       <div
@@ -1516,7 +1508,6 @@ function Navigation({ currentPage, setCurrentPage, showNavEye = false, showNavNa
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
-          padding: "0 16px",
           opacity: showNavName ? 1 : 0,
           transform: showNavName ? "translateY(0)" : "translateY(-10px)",
           transition: "opacity 0.4s ease, transform 0.4s ease",
@@ -1544,7 +1535,10 @@ function Navigation({ currentPage, setCurrentPage, showNavEye = false, showNavNa
         </span>
       </div>
       
-      <AboutMeButton currentPage={currentPage} setCurrentPage={setCurrentPage} />
+      {/* Right container - fixed width for balance */}
+      <div style={{ width: "80px", flexShrink: 0, display: "flex", justifyContent: "flex-end" }}>
+        <AboutMeButton currentPage={currentPage} setCurrentPage={setCurrentPage} />
+      </div>
     </nav>
   );
 }
@@ -2945,7 +2939,7 @@ function AboutPage({ isAdmin, photoUrl, onEditPhoto, onResetPhoto }) {
         flexDirection: "column",
       }}
     >
-      <section style={{ padding: "15px 24px", maxWidth: "1000px", margin: "0 auto", flex: 1, display: "flex", flexDirection: "column", width: "100%", boxSizing: "border-box", overflow: "hidden" }}>
+      <section style={{ padding: "15px 24px", maxWidth: "1000px", margin: "0 auto", flex: 1, display: "flex", flexDirection: "column", alignItems: "center", width: "100%", boxSizing: "border-box", overflow: "hidden" }}>
         <div style={{ display: "flex", justifyContent: "center", marginBottom: "15px" }}>
           <GeometricBorder width={Math.min(200, window.innerWidth - 80)} />
         </div>
@@ -2960,6 +2954,7 @@ function AboutPage({ isAdmin, photoUrl, onEditPhoto, onResetPhoto }) {
             marginTop: "0",
             letterSpacing: "4px",
             textAlign: "center",
+            width: "100%",
           }}
         >
           ABOUT ME
@@ -2975,10 +2970,8 @@ function AboutPage({ isAdmin, photoUrl, onEditPhoto, onResetPhoto }) {
             gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
             gap: "32px",
             alignItems: "center",
-            justifyItems: "center",
-            padding: "0 10px", // Extra padding to account for shadow offset
-            maxWidth: "800px",
-            margin: "0 auto",
+            padding: "0 10px",
+            width: "100%",
           }}
         >
           <div style={{ position: "relative", maxWidth: "350px", margin: "0 auto" }}>
@@ -3043,7 +3036,7 @@ function AboutPage({ isAdmin, photoUrl, onEditPhoto, onResetPhoto }) {
           </div>
 
           {/* Mid-century styled content box */}
-          <div style={{ position: "relative", maxWidth: "400px", width: "100%" }}>
+          <div style={{ position: "relative" }}>
             {/* Main content container - glass effect */}
             <div
               style={{
