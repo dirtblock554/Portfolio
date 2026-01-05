@@ -114,16 +114,18 @@ const eyeStateManager = {
     }
     
     const rect = canvasRef.current.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
+    const eyeCenterX = rect.left + rect.width / 2;
+    const eyeCenterY = rect.top + rect.height / 2;
     
-    const deltaX = this.mouseX - centerX;
-    const deltaY = this.mouseY - centerY;
+    const deltaX = this.mouseX - eyeCenterX;
+    const deltaY = this.mouseY - eyeCenterY;
     
-    // Sensitivity: ~250px of mouse movement = full range (0 to 100)
-    const sensitivity = 0.2;
-    const x = clamp(50 + deltaX * sensitivity, 0, 100);
-    const y = clamp(50 + deltaY * sensitivity, 0, 100);
+    // Sensitivity: how many pixels from eye center = full look (0 or 100)
+    // 200px away = full look in that direction
+    const maxDistance = 200;
+    
+    const x = clamp(50 + (deltaX / maxDistance) * 50, 0, 100);
+    const y = clamp(50 + (deltaY / maxDistance) * 50, 0, 100);
     
     return { x, y };
   },
@@ -133,22 +135,6 @@ const eyeStateManager = {
     
     const now = Date.now();
     const shouldTrackMouse = !this.isMobile && this.isMouseOnPage && this.mouseX >= 0;
-    
-    // Debug log every 60 frames
-    if (!this._debugCounter) this._debugCounter = 0;
-    this._debugCounter++;
-    if (this._debugCounter % 60 === 0) {
-      console.log('Eye tracking:', { 
-        shouldTrackMouse, 
-        isMobile: this.isMobile, 
-        isMouseOnPage: this.isMouseOnPage, 
-        mouseX: this.mouseX,
-        mouseY: this.mouseY,
-        currentLookX: this.currentLookX,
-        currentLookY: this.currentLookY,
-        instances: this.instances.length
-      });
-    }
     
     if (shouldTrackMouse && this.instances.length > 0) {
       // Use first instance's canvas for reference
@@ -290,7 +276,7 @@ function RiveEye({ size = 60 }) {
             const inputs = r.stateMachineInputs("State Machine 1");
             const inputMap = {};
             if (inputs) {
-              inputs.forEach(input => { inputMap[input.name] = input; }); console.log('Rive inputs:', Object.keys(inputMap));
+              inputs.forEach(input => { inputMap[input.name] = input; });
             }
             instanceRef.current.inputs = inputMap;
             eyeStateManager.registerInstance(instanceRef.current);
@@ -422,7 +408,7 @@ function RiveEyeLarge({ size = 180 }) {
             const inputs = r.stateMachineInputs("State Machine 1");
             const inputMap = {};
             if (inputs) {
-              inputs.forEach(input => { inputMap[input.name] = input; }); console.log('Rive inputs:', Object.keys(inputMap));
+              inputs.forEach(input => { inputMap[input.name] = input; });
             }
             instanceRef.current.inputs = inputMap;
             eyeStateManager.registerInstance(instanceRef.current);
