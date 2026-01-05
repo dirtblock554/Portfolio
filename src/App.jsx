@@ -169,12 +169,34 @@ const eyeStateManager = {
     // Apply to all instances
     this.instances.forEach(instance => {
       if (instance.inputs) {
+        let lookX, lookY;
+        
+        if (shouldTrackMouse && instance.canvasRef?.current) {
+          // Per-eye calculation when tracking mouse
+          const rect = instance.canvasRef.current.getBoundingClientRect();
+          const eyeCenterX = rect.left + rect.width / 2;
+          const eyeCenterY = rect.top + rect.height / 2;
+          
+          const deltaX = this.mouseX - eyeCenterX;
+          const deltaY = this.mouseY - eyeCenterY;
+          
+          // 200px from eye center = full look in that direction
+          const maxDistance = 200;
+          
+          lookX = clamp(50 + (deltaX / maxDistance) * 50, 0, 100);
+          lookY = clamp(50 + (deltaY / maxDistance) * 50, 0, 100);
+        } else {
+          // Use shared idle values
+          lookX = this.currentLookX;
+          lookY = this.currentLookY;
+        }
+        
         // Handle both LookX/lookX naming conventions
         const lookXInput = instance.inputs.LookX || instance.inputs.lookX;
         const lookYInput = instance.inputs.LookY || instance.inputs.lookY;
-        if (lookXInput) lookXInput.value = this.currentLookX;
+        if (lookXInput) lookXInput.value = lookX;
         // Invert Y axis: Rive has LookUp=100, LookDown=0, but screen Y is opposite
-        if (lookYInput) lookYInput.value = 100 - this.currentLookY;
+        if (lookYInput) lookYInput.value = 100 - lookY;
       }
     });
     
