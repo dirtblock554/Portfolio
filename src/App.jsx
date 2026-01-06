@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { X, Mail, Linkedin, Instagram, Play, Plus, Trash2, Edit, Lock, LogOut, Save } from "lucide-react";
+import { X, Mail, Linkedin, Instagram, Play, Plus, Trash2, Edit, Edit2, Lock, LogOut, Save } from "lucide-react";
 
 // ============================================
 // COLOR PALETTE & THEME
@@ -349,7 +349,7 @@ function RiveEye({ size = 60 }) {
       {!isLoaded && (
         <div style={{ 
           position: "absolute",
-          top: "55%",
+          top: "50%",
           left: "50%",
           transform: "translate(-50%, -50%)",
         }}>
@@ -366,7 +366,7 @@ function RiveEye({ size = 60 }) {
           height: eyeHeight,
           opacity: isLoaded ? 1 : 0,
           transition: "opacity 0.3s ease",
-          top: "55%",
+          top: "50%",
           left: "50%",
           transform: "translate(-50%, -50%)",
         }}
@@ -1510,7 +1510,7 @@ function Navigation({ currentPage, setCurrentPage, showNavEye = false, showNavNa
       }}
     >
       {/* Left container - fixed width for balance */}
-      <div style={{ width: "80px", flexShrink: 0 }}>
+      <div style={{ width: "80px", flexShrink: 0, display: "flex", alignItems: "center" }}>
         <button
           onClick={() => {
             if (onEyeClick) onEyeClick();
@@ -1520,7 +1520,11 @@ function Navigation({ currentPage, setCurrentPage, showNavEye = false, showNavNa
             background: "none",
             border: "none",
             cursor: "pointer",
-            padding: "4px",
+            padding: "0",
+            margin: "0",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
             opacity: showNavEye ? 1 : 0,
             transform: showNavEye ? "scale(1)" : "scale(0.8)",
             transition: "opacity 0.4s ease, transform 0.4s ease",
@@ -1528,7 +1532,7 @@ function Navigation({ currentPage, setCurrentPage, showNavEye = false, showNavNa
           }}
           title="Back to Top"
         >
-          <RiveEye size={70} />
+          <RiveEye size={55} />
         </button>
       </div>
       
@@ -2959,8 +2963,9 @@ function PortfolioSection({ animations, onCardClick, isAdmin, onAddClick, onEdit
 }
 
 // About Page
-function AboutPage({ isAdmin, photoUrl, onEditPhoto, onResetPhoto }) {
+function AboutPage({ isAdmin, photoUrl, onEditPhoto, onResetPhoto, bio, onEditBio, onResetBio }) {
   const displayPhotoUrl = photoUrl || portfolioData.about.photoUrl;
+  const displayBio = bio || portfolioData.about.bio;
   
   return (
     <div
@@ -3121,20 +3126,67 @@ function AboutPage({ isAdmin, photoUrl, onEditPhoto, onResetPhoto }) {
                 <div style={{ width: "40px", height: "2px", backgroundColor: colors.coral }} />
               </div>
               
-              <p
-                style={{
-                  fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
-                  fontSize: "15px",
-                  fontWeight: "bold",
-                  color: colors.cream,
-                  lineHeight: 1.7,
-                  marginBottom: "20px",
-                  textAlign: "center",
-                  textShadow: "0 1px 3px rgba(0,0,0,0.3)",
-                }}
-              >
-                {portfolioData.about.bio}
-              </p>
+              <div style={{ position: "relative" }}>
+                <p
+                  style={{
+                    fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+                    fontSize: "15px",
+                    fontWeight: "bold",
+                    color: colors.cream,
+                    lineHeight: 1.7,
+                    marginBottom: "20px",
+                    textAlign: "center",
+                    textShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                  }}
+                >
+                  {displayBio}
+                </p>
+                {/* Admin edit buttons for bio */}
+                {isAdmin && (
+                  <div style={{ 
+                    display: "flex", 
+                    justifyContent: "center",
+                    gap: "8px",
+                    marginBottom: "16px",
+                  }}>
+                    <button
+                      onClick={onEditBio}
+                      style={{
+                        backgroundColor: colors.coral,
+                        color: colors.charcoal,
+                        border: "none",
+                        borderRadius: "4px",
+                        padding: "6px 12px",
+                        cursor: "pointer",
+                        fontSize: "11px",
+                        fontWeight: "bold",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                      }}
+                    >
+                      <Edit2 size={12} /> Edit Bio
+                    </button>
+                    {bio && (
+                      <button
+                        onClick={onResetBio}
+                        style={{
+                          backgroundColor: colors.charcoal,
+                          color: colors.cream,
+                          border: `1px solid ${colors.coral}`,
+                          borderRadius: "4px",
+                          padding: "6px 12px",
+                          cursor: "pointer",
+                          fontSize: "11px",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        Reset
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
 
               <div style={{ display: "flex", justifyContent: "center", gap: "16px", marginBottom: "8px" }}>
                 <ContactButton inverted />
@@ -3237,6 +3289,7 @@ export default function App() {
   // Custom photo and demo reel URLs (admin-editable)
   const [customPhotoUrl, setCustomPhotoUrl] = useState(null);
   const [customDemoReelUrl, setCustomDemoReelUrl] = useState(null);
+  const [customBio, setCustomBio] = useState(null);
 
   // Track hero eye and name visibility for nav toggle
   useEffect(() => {
@@ -3292,6 +3345,11 @@ export default function App() {
       if (savedDemoReel) {
         setCustomDemoReelUrl(savedDemoReel);
       }
+      // Load custom bio
+      const savedBio = localStorage.getItem("portfolio-bio");
+      if (savedBio) {
+        setCustomBio(savedBio);
+      }
     } catch (e) {
       console.log("localStorage not available, using defaults");
     }
@@ -3328,6 +3386,17 @@ export default function App() {
     }
   }, [customDemoReelUrl]);
 
+  // Save custom bio to localStorage
+  useEffect(() => {
+    try {
+      if (customBio) {
+        localStorage.setItem("portfolio-bio", customBio);
+      }
+    } catch (e) {
+      console.log("Could not save bio to localStorage");
+    }
+  }, [customBio]);
+
   // Handlers for editing photo and demo reel
   const handleEditPhoto = () => {
     const newUrl = window.prompt("Enter new photo URL:", customPhotoUrl || portfolioData.about.photoUrl);
@@ -3357,6 +3426,22 @@ export default function App() {
       setCustomDemoReelUrl(null);
       try {
         localStorage.removeItem("portfolio-demoreel-url");
+      } catch (e) {}
+    }
+  };
+
+  const handleEditBio = () => {
+    const newBio = window.prompt("Enter new bio text:", customBio || portfolioData.about.bio);
+    if (newBio !== null && newBio.trim() !== "") {
+      setCustomBio(newBio.trim());
+    }
+  };
+
+  const handleResetBio = () => {
+    if (window.confirm("Reset to default bio?")) {
+      setCustomBio(null);
+      try {
+        localStorage.removeItem("portfolio-bio");
       } catch (e) {}
     }
   };
@@ -3471,6 +3556,9 @@ export default function App() {
             photoUrl={customPhotoUrl}
             onEditPhoto={handleEditPhoto}
             onResetPhoto={handleResetPhoto}
+            bio={customBio}
+            onEditBio={handleEditBio}
+            onResetBio={handleResetBio}
           />
         )}
       </main>
