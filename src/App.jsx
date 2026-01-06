@@ -171,7 +171,8 @@ const eyeStateManager = {
       if (instance.inputs) {
         let lookX, lookY;
         
-        if (shouldTrackMouse && instance.canvasRef?.current) {
+        // Only track mouse if instance allows it AND mouse tracking is active
+        if (shouldTrackMouse && instance.trackMouse && instance.canvasRef?.current) {
           // Per-eye calculation when tracking mouse
           const rect = instance.canvasRef.current.getBoundingClientRect();
           const eyeCenterX = rect.left + rect.width / 2;
@@ -245,12 +246,13 @@ const eyeStateManager = {
 function RiveEye({ size = 60 }) {
   const canvasRef = useRef(null);
   const riveRef = useRef(null);
-  const instanceRef = useRef({ canvasRef, inputs: null });
+  const instanceRef = useRef({ canvasRef, inputs: null, trackMouse: false });
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
     instanceRef.current.canvasRef = canvasRef;
+    instanceRef.current.trackMouse = false; // Nav eye only does idle animation
     let isMounted = true;
 
     const initRive = async () => {
@@ -377,12 +379,13 @@ function RiveEye({ size = 60 }) {
 function RiveEyeLarge({ size = 180 }) {
   const canvasRef = useRef(null);
   const riveRef = useRef(null);
-  const instanceRef = useRef({ canvasRef, inputs: null });
+  const instanceRef = useRef({ canvasRef, inputs: null, trackMouse: true });
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
     instanceRef.current.canvasRef = canvasRef;
+    instanceRef.current.trackMouse = true; // Hero eye tracks mouse
     let isMounted = true;
 
     const initRive = async () => {
