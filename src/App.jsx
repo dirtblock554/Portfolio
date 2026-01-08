@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { X, Mail, Linkedin, Instagram, Play, Plus, Trash2, Edit, Edit2, Lock, LogOut, Save } from "lucide-react";
+import { subscribeToSettings, subscribeToAnimations, saveSettings, saveAnimations } from "./firebase";
 
 // ============================================
 // COLOR PALETTE & THEME
@@ -21,7 +22,7 @@ const RIVE_EYE_BASE64 = "UklWRQcA84ByxAGmAeoEzATyBLYE5wSYBOwB7ASSB6UB6QTLAa0E8QT
 // Rive setup:
 // - State Machine: "State Machine 1"
 // - Inputs: LookX (Number, 0-100, 50=center), LookY (Number, 0-100, 50=center), Blink (Trigger)
-// 
+//
 // trackingMode="track": follows mouse across whole window
 // trackingMode="idle": random wandering + blinking (used in navbar)
 
@@ -47,25 +48,25 @@ const eyeStateManager = {
   blinkTimeoutId: null,
   mouseListenerAdded: false,
   animFrameId: null,
-  
+
   EASING_SPEED: 0.15,
   IDLE_EASING_SPEED: 0.08,
   DEADZONE: 1.5,
-  
+
   registerInstance(instance) {
     this.instances.push(instance);
     if (!this.isRunning) {
       this.startAnimation();
     }
   },
-  
+
   unregisterInstance(instance) {
     this.instances = this.instances.filter(i => i !== instance);
     if (this.instances.length === 0) {
       this.stopAnimation();
     }
   },
-  
+
   stopAnimation() {
     this.isRunning = false;
     if (this.blinkTimeoutId) {
@@ -77,7 +78,7 @@ const eyeStateManager = {
       this.animFrameId = null;
     }
   },
-  
+
   scheduleNextBlink() {
     if (!this.isRunning) return;
     const delay = 3000 + Math.random() * 4000;
@@ -100,42 +101,42 @@ const eyeStateManager = {
       }
     }, delay);
   },
-  
+
   getRandomIdleTarget() {
     return {
       x: 20 + Math.random() * 60,
       y: 25 + Math.random() * 50
     };
   },
-  
+
   getMouseLookTarget(canvasRef) {
     if (!canvasRef?.current) {
       return { x: 50, y: 50 };
     }
-    
+
     const rect = canvasRef.current.getBoundingClientRect();
     const eyeCenterX = rect.left + rect.width / 2;
     const eyeCenterY = rect.top + rect.height / 2;
-    
+
     const deltaX = this.mouseX - eyeCenterX;
     const deltaY = this.mouseY - eyeCenterY;
-    
+
     // Sensitivity: how many pixels from eye center = full look (0 or 100)
     // 200px away = full look in that direction
     const maxDistance = 200;
-    
+
     const x = clamp(50 + (deltaX / maxDistance) * 50, 0, 100);
     const y = clamp(50 + (deltaY / maxDistance) * 50, 0, 100);
-    
+
     return { x, y };
   },
-  
+
   update() {
     if (!this.isRunning) return;
-    
+
     const now = Date.now();
     const shouldTrackMouse = !this.isMobile && this.isMouseOnPage && this.mouseX >= 0;
-    
+
     if (shouldTrackMouse && this.instances.length > 0) {
       // Use first instance's canvas for reference
       const firstCanvas = this.instances[0]?.canvasRef;
@@ -153,37 +154,37 @@ const eyeStateManager = {
       this.targetLookX = this.idleTargetX;
       this.targetLookY = this.idleTargetY;
     }
-    
+
     // Smooth interpolation with deadzone
     const dx = this.targetLookX - this.currentLookX;
     const dy = this.targetLookY - this.currentLookY;
     const speed = shouldTrackMouse ? this.EASING_SPEED : this.IDLE_EASING_SPEED;
-    
+
     if (Math.abs(dx) > this.DEADZONE) {
       this.currentLookX = lerp(this.currentLookX, this.targetLookX, speed);
     }
     if (Math.abs(dy) > this.DEADZONE) {
       this.currentLookY = lerp(this.currentLookY, this.targetLookY, speed);
     }
-    
+
     // Apply to all instances
     this.instances.forEach(instance => {
       if (instance.inputs) {
         let lookX, lookY;
-        
+
         // Only track mouse if instance allows it AND mouse tracking is active
         if (shouldTrackMouse && instance.trackMouse && instance.canvasRef?.current) {
           // Per-eye calculation when tracking mouse
           const rect = instance.canvasRef.current.getBoundingClientRect();
           const eyeCenterX = rect.left + rect.width / 2;
           const eyeCenterY = rect.top + rect.height / 2;
-          
+
           const deltaX = this.mouseX - eyeCenterX;
           const deltaY = this.mouseY - eyeCenterY;
-          
+
           // 200px from eye center = full look in that direction
           const maxDistance = 200;
-          
+
           lookX = clamp(50 + (deltaX / maxDistance) * 50, 0, 100);
           lookY = clamp(50 + (deltaY / maxDistance) * 50, 0, 100);
         } else {
@@ -191,7 +192,7 @@ const eyeStateManager = {
           lookX = this.currentLookX;
           lookY = this.currentLookY;
         }
-        
+
         // Handle both LookX/lookX naming conventions
         const lookXInput = instance.inputs.LookX || instance.inputs.lookX;
         const lookYInput = instance.inputs.LookY || instance.inputs.lookY;
@@ -200,43 +201,43 @@ const eyeStateManager = {
         if (lookYInput) lookYInput.value = 100 - lookY;
       }
     });
-    
+
     this.animFrameId = requestAnimationFrame(() => this.update());
   },
-  
+
   startAnimation() {
     this.isRunning = true;
     this.update();
     this.scheduleNextBlink();
-    
+
     if (!this.mouseListenerAdded) {
       const handlePointerMove = (e) => {
         this.mouseX = e.clientX;
         this.mouseY = e.clientY;
         this.isMouseOnPage = true;
       };
-      
+
       const handleMouseLeave = () => {
         this.isMouseOnPage = false;
         // Return to center when mouse leaves
         this.targetLookX = 50;
         this.targetLookY = 50;
       };
-      
+
       const handleMouseEnter = () => {
         this.isMouseOnPage = true;
       };
-      
+
       window.addEventListener('pointermove', handlePointerMove);
       document.addEventListener('mouseleave', handleMouseLeave);
       document.addEventListener('mouseenter', handleMouseEnter);
       window.addEventListener('blur', handleMouseLeave);
       window.addEventListener('focus', handleMouseEnter);
-      
+
       window.addEventListener('resize', () => {
         this.isMobile = window.innerWidth <= 768;
       });
-      
+
       this.mouseListenerAdded = true;
     }
   }
@@ -296,7 +297,7 @@ function RiveEye({ size = 60 }) {
             if (!isMounted) return;
             setIsLoaded(true);
             r.resizeDrawingSurfaceToCanvas();
-            
+
             const inputs = r.stateMachineInputs("State Machine 1");
             const inputMap = {};
             if (inputs) {
@@ -335,11 +336,11 @@ function RiveEye({ size = 60 }) {
   const containerWidth = size * 1.2;
   const eyeWidth = size * 2;
   const eyeHeight = size;
-  
+
   return (
-    <div style={{ 
-      position: "relative", 
-      width: containerWidth, 
+    <div style={{
+      position: "relative",
+      width: containerWidth,
       height: containerHeight,
       overflow: "visible",
       display: "flex",
@@ -347,7 +348,7 @@ function RiveEye({ size = 60 }) {
       alignItems: "center",
     }}>
       {!isLoaded && (
-        <div style={{ 
+        <div style={{
           position: "absolute",
           top: "50%",
           left: "50%",
@@ -429,7 +430,7 @@ function RiveEyeLarge({ size = 180 }) {
             if (!isMounted) return;
             setIsLoaded(true);
             r.resizeDrawingSurfaceToCanvas();
-            
+
             const inputs = r.stateMachineInputs("State Machine 1");
             const inputMap = {};
             if (inputs) {
@@ -470,10 +471,10 @@ function RiveEyeLarge({ size = 180 }) {
   const eyeHeight = size;
 
   return (
-    <div style={{ 
-      position: "relative", 
-      width: containerWidth, 
-      height: containerHeight, 
+    <div style={{
+      position: "relative",
+      width: containerWidth,
+      height: containerHeight,
       background: "transparent",
       overflow: "visible",
       display: "flex",
@@ -481,7 +482,7 @@ function RiveEyeLarge({ size = 180 }) {
       alignItems: "center",
     }}>
       {!isLoaded && (
-        <div style={{ 
+        <div style={{
           position: "absolute",
           top: "50%",
           left: "50%",
@@ -521,7 +522,7 @@ const portfolioData = {
   demoReelUrl: "https://www.youtube.com/embed/m1Cwt0VQ0ZU",
   about: {
     bio: "I'm Zach Foster, an animator and motion designer passionate about bringing ideas to life through movement. With a focus on storytelling and visual impact, I create animations that captivate and communicate.",
-    photoUrl: "data:image/jpeg;base64,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",
+    photoUrl: "data:image/jpeg;base64,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",
   },
 };
 
@@ -632,7 +633,7 @@ function WavyBackground() {
     if (!canvas) return;
 
     const ctx = canvas.getContext("2d");
-    
+
     const updateCanvasSize = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
@@ -666,7 +667,7 @@ function WavyBackground() {
         };
       }
     };
-    
+
     const handleTouchStart = (e) => {
       if (e.touches && e.touches[0]) {
         mouseRef.current = {
@@ -737,7 +738,7 @@ function WavyBackground() {
     const generateWaves = (time) => {
       const width = canvas.width;
       const height = canvas.height;
-      
+
       ctx.fillStyle = colors.charcoal;
       ctx.fillRect(0, 0, width, height);
 
@@ -868,7 +869,7 @@ const GeometricBorder = ({ width = 200, color = colors.coral }) => (
 function SocialBox({ href, icon, label, external = false, copyText = null }) {
   const [isHovered, setIsHovered] = useState(false);
   const [copied, setCopied] = useState(false);
-  
+
   const handleClick = (e) => {
     if (copyText) {
       e.preventDefault();
@@ -881,7 +882,7 @@ function SocialBox({ href, icon, label, external = false, copyText = null }) {
       });
     }
   };
-  
+
   return (
     <div
       style={{
@@ -947,7 +948,7 @@ function SocialBox({ href, icon, label, external = false, copyText = null }) {
           style={{
             width: "70px",
             height: "70px",
-            background: isHovered 
+            background: isHovered
               ? "linear-gradient(135deg, rgba(252, 119, 83, 0.4) 0%, rgba(252, 119, 83, 0.2) 100%)"
               : "linear-gradient(135deg, rgba(28, 28, 28, 0.4) 0%, rgba(28, 28, 28, 0.2) 100%)",
             backdropFilter: "blur(16px)",
@@ -961,21 +962,21 @@ function SocialBox({ href, icon, label, external = false, copyText = null }) {
             transition: "all 0.3s ease",
           }}
         >
-          {React.cloneElement(icon, { 
+          {React.cloneElement(icon, {
             color: isHovered ? colors.cream : colors.coral,
             style: { transition: "all 0.3s ease" }
           })}
         </div>
-        <span style={{ 
-          fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", 
-          fontSize: "12px", 
+        <span style={{
+          fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+          fontSize: "12px",
           letterSpacing: "2px",
           transition: "color 0.3s ease",
         }}>
           {label}
         </span>
       </a>
-      
+
       {/* Animated COPIED! popup */}
       {copied && (
         <div
@@ -1046,10 +1047,10 @@ function SocialBox({ href, icon, label, external = false, copyText = null }) {
               animationDelay: "0.08s",
             }}
           />
-          <span 
-            style={{ 
-              fontSize: "12px", 
-              letterSpacing: "2px", 
+          <span
+            style={{
+              fontSize: "12px",
+              letterSpacing: "2px",
               color: colors.coral,
               fontWeight: "bold",
               whiteSpace: "nowrap",
@@ -1066,17 +1067,17 @@ function SocialBox({ href, icon, label, external = false, copyText = null }) {
 // Contact Button with hover effect
 function ContactButton({ inverted = false }) {
   const [isHovered, setIsHovered] = useState(false);
-  
+
   // Glass effect colors
-  const bgGradient = inverted 
-    ? (isHovered 
+  const bgGradient = inverted
+    ? (isHovered
         ? "linear-gradient(135deg, rgba(28, 28, 28, 0.5) 0%, rgba(28, 28, 28, 0.3) 100%)"
         : "linear-gradient(135deg, rgba(252, 119, 83, 0.7) 0%, rgba(252, 119, 83, 0.5) 100%)")
     : (isHovered ? colors.cream : colors.coral);
   const textColor = inverted
     ? (isHovered ? colors.cream : colors.charcoal)
     : (isHovered ? colors.coral : colors.charcoal);
-  
+
   return (
     <a
       href={`mailto:${portfolioData.email}`}
@@ -1111,13 +1112,13 @@ function ContactButton({ inverted = false }) {
 // Lock Icon with hover effect
 function LockIcon() {
   const [isHovered, setIsHovered] = useState(false);
-  
+
   return (
     <div
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      style={{ 
-        display: "flex", 
+      style={{
+        display: "flex",
         alignItems: "center",
         opacity: isHovered ? 1 : 0.5,
         transition: "opacity 0.2s",
@@ -1146,7 +1147,7 @@ function ScrollIndicator({ hidden = false }) {
 
     window.addEventListener("scroll", handleScroll);
     handleScroll();
-    
+
     return () => window.removeEventListener("scroll", handleScroll);
   }, [isDragging]);
 
@@ -1159,9 +1160,9 @@ function ScrollIndicator({ hidden = false }) {
       const trackRect = trackRef.current.getBoundingClientRect();
       const relativeY = e.clientY - trackRect.top;
       const progress = Math.min(Math.max(relativeY / trackRect.height, 0), 1);
-      
+
       setScrollProgress(progress);
-      
+
       // Scroll the page
       const docHeight = document.documentElement.scrollHeight - window.innerHeight;
       window.scrollTo({ top: progress * docHeight });
@@ -1183,7 +1184,7 @@ function ScrollIndicator({ hidden = false }) {
 
   const trackHeight = 150;
   const diamondPosition = scrollProgress * (trackHeight - 10);
-  
+
   // Hide on mobile
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
 
@@ -1192,7 +1193,7 @@ function ScrollIndicator({ hidden = false }) {
     const trackRect = trackRef.current.getBoundingClientRect();
     const relativeY = e.clientY - trackRect.top;
     const progress = Math.min(Math.max(relativeY / trackRect.height, 0), 1);
-    
+
     const docHeight = document.documentElement.scrollHeight - window.innerHeight;
     window.scrollTo({ top: progress * docHeight, behavior: "smooth" });
   };
@@ -1217,12 +1218,12 @@ function ScrollIndicator({ hidden = false }) {
       }}
     >
       <div style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: colors.coral }} />
-      <div 
+      <div
         ref={trackRef}
         onClick={handleTrackClick}
-        style={{ 
-          width: "20px", 
-          height: `${trackHeight}px`, 
+        style={{
+          width: "20px",
+          height: `${trackHeight}px`,
           display: "flex",
           justifyContent: "center",
           cursor: "pointer",
@@ -1264,13 +1265,13 @@ function ScrollIndicator({ hidden = false }) {
 function Footer({ onAdminClick, isAdmin }) {
   const [emailCopied, setEmailCopied] = useState(false);
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 768);
-  
+
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-  
+
   const handleEmailClick = (e) => {
     e.preventDefault();
     navigator.clipboard.writeText(portfolioData.email).then(() => {
@@ -1281,7 +1282,7 @@ function Footer({ onAdminClick, isAdmin }) {
       console.log("Clipboard access denied");
     });
   };
-  
+
   return (
     <footer
       style={{
@@ -1332,7 +1333,7 @@ function Footer({ onAdminClick, isAdmin }) {
           }
         `}
       </style>
-      
+
       {/* Left side: Copyright + Lock */}
       <div style={{ display: "flex", alignItems: "center", gap: isMobile ? "8px" : "16px" }}>
         <p style={{ color: colors.cream, fontSize: isMobile ? "11px" : "14px", margin: 0, letterSpacing: "1px" }}>
@@ -1356,18 +1357,18 @@ function Footer({ onAdminClick, isAdmin }) {
           )}
         </button>
       </div>
-      
+
       {/* Right side: Social icons */}
       <div style={{ display: "flex", gap: isMobile ? "24px" : "40px", alignItems: "center" }}>
         {/* Email button with copy feedback */}
         <div style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center" }}>
           <button
             onClick={handleEmailClick}
-            style={{ 
+            style={{
               background: "none",
               border: "none",
-              color: colors.cream, 
-              transition: "color 0.2s", 
+              color: colors.cream,
+              transition: "color 0.2s",
               padding: "8px",
               cursor: "pointer",
               display: "flex",
@@ -1448,10 +1449,10 @@ function Footer({ onAdminClick, isAdmin }) {
                   animationDelay: "0.08s",
                 }}
               />
-              <span 
-                style={{ 
-                  fontSize: "10px", 
-                  letterSpacing: "1px", 
+              <span
+                style={{
+                  fontSize: "10px",
+                  letterSpacing: "1px",
                   color: colors.coral,
                   fontWeight: "bold",
                   whiteSpace: "nowrap",
@@ -1535,7 +1536,7 @@ function Navigation({ currentPage, setCurrentPage, showNavEye = false, showNavNa
           <RiveEye size={55} />
         </button>
       </div>
-      
+
       {/* Name in center - thick chunky font - CLICKABLE */}
       <div
         onClick={() => {
@@ -1573,7 +1574,7 @@ function Navigation({ currentPage, setCurrentPage, showNavEye = false, showNavNa
           ZACH FOSTER
         </span>
       </div>
-      
+
       {/* Right container - fixed width for balance */}
       <div style={{ width: "80px", flexShrink: 0, display: "flex", justifyContent: "flex-end" }}>
         <AboutMeButton currentPage={currentPage} setCurrentPage={setCurrentPage} />
@@ -1588,19 +1589,19 @@ function AboutMeButton({ currentPage, setCurrentPage }) {
   const [showInitialBubble, setShowInitialBubble] = useState(true);
   const [isFadingOut, setIsFadingOut] = useState(false);
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 768);
-  
+
   const isOnAboutPage = currentPage === "about";
-  
+
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-  
+
   useEffect(() => {
     // Only show timed bubble on desktop
     if (isMobile) return;
-    
+
     let innerTimer;
     const timer = setTimeout(() => {
       setIsFadingOut(true);
@@ -1614,13 +1615,13 @@ function AboutMeButton({ currentPage, setCurrentPage }) {
       if (innerTimer) clearTimeout(innerTimer);
     };
   }, [isMobile]);
-  
+
   const showBubble = !isMobile && (isHovered || showInitialBubble) && !isOnAboutPage;
-  
+
   return (
-    <div 
-      style={{ 
-        position: "relative", 
+    <div
+      style={{
+        position: "relative",
         flexShrink: 0,
         opacity: isOnAboutPage ? 0 : 1,
         pointerEvents: isOnAboutPage ? "none" : "auto",
@@ -1646,7 +1647,7 @@ function AboutMeButton({ currentPage, setCurrentPage }) {
           }
         `}
       </style>
-      
+
       {/* Speech bubble - desktop only */}
       {showBubble && (
         <div
@@ -1659,8 +1660,8 @@ function AboutMeButton({ currentPage, setCurrentPage }) {
             padding: "8px 16px",
             borderRadius: "4px",
             whiteSpace: "nowrap",
-            animation: isFadingOut 
-              ? "slideOutFade 0.5s ease-in forwards" 
+            animation: isFadingOut
+              ? "slideOutFade 0.5s ease-in forwards"
               : "slideInBounce 0.5s ease-out forwards",
             pointerEvents: "none",
           }}
@@ -1692,7 +1693,7 @@ function AboutMeButton({ currentPage, setCurrentPage }) {
           />
         </div>
       )}
-      
+
       <button
         onClick={() => setCurrentPage("about")}
         onMouseEnter={() => setIsHovered(true)}
@@ -1709,7 +1710,7 @@ function AboutMeButton({ currentPage, setCurrentPage }) {
       >
         <PersonIcon size={36} color={isHovered ? colors.cream : colors.coral} />
       </button>
-      
+
       {/* Mobile label beneath icon */}
       {isMobile && !isOnAboutPage && (
         <span
@@ -1946,7 +1947,7 @@ function AnimationCard({ animation, onClick, lightMode = false, isAdmin = false,
 // Animation Modal with embedded video
 function AnimationModal({ isOpen, onClose, animation }) {
   const [closeHovered, setCloseHovered] = useState(false);
-  
+
   if (!isOpen || !animation) return null;
 
   const embedUrl = getYouTubeEmbedUrl(animation.youtubeUrl);
@@ -1970,7 +1971,7 @@ function AnimationModal({ isOpen, onClose, animation }) {
           zIndex: 200,
         }}
       />
-      
+
       {/* Modal wrapper - for positioning starbursts */}
       <div
         style={{
@@ -1987,7 +1988,7 @@ function AnimationModal({ isOpen, onClose, animation }) {
         <Starburst size={70} style={{ position: "absolute", top: "-35px", right: "-35px", zIndex: 5 }} />
         <Starburst size={45} style={{ position: "absolute", top: "20px", right: "-25px", opacity: 0.7, zIndex: 5 }} />
         <Starburst size={32} style={{ position: "absolute", top: "-22px", right: "25px", opacity: 0.5, zIndex: 5 }} />
-        
+
         <Starburst size={65} style={{ position: "absolute", bottom: "-32px", left: "-32px", zIndex: 5 }} />
         <Starburst size={40} style={{ position: "absolute", bottom: "18px", left: "-22px", opacity: 0.7, zIndex: 5 }} />
 
@@ -2023,10 +2024,10 @@ function AnimationModal({ isOpen, onClose, animation }) {
               transition: "background-color 0.2s ease",
             }}
           >
-            <X 
-              size={16} 
-              color={closeHovered ? colors.coral : colors.charcoal} 
-              style={{ transform: "rotate(-45deg)", transition: "color 0.2s ease" }} 
+            <X
+              size={16}
+              color={closeHovered ? colors.coral : colors.charcoal}
+              style={{ transform: "rotate(-45deg)", transition: "color 0.2s ease" }}
             />
           </button>
 
@@ -2035,7 +2036,7 @@ function AnimationModal({ isOpen, onClose, animation }) {
             <style>
               {`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');`}
             </style>
-            
+
             {/* Embedded YouTube video with coral border */}
             {embedUrl && (
               <div
@@ -2076,7 +2077,7 @@ function AnimationModal({ isOpen, onClose, animation }) {
               >
                 {animation.title.toUpperCase()}
               </h2>
-              
+
               <div
                 style={{
                   backgroundColor: colors.coral,
@@ -2094,7 +2095,7 @@ function AnimationModal({ isOpen, onClose, animation }) {
                   {animation.duration}
                 </span>
               </div>
-              
+
               <span
                 style={{
                   fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
@@ -2170,18 +2171,18 @@ function AdminLogin({ onLogin, onClose }) {
   return (
     <>
       {/* Backdrop */}
-      <div 
-        onClick={handleClose} 
-        style={{ 
-          position: "fixed", 
-          inset: 0, 
-          backgroundColor: `${colors.charcoal}99`, 
+      <div
+        onClick={handleClose}
+        style={{
+          position: "fixed",
+          inset: 0,
+          backgroundColor: `${colors.charcoal}99`,
           zIndex: 300,
           opacity: isVisible ? 1 : 0,
           transition: "opacity 0.3s ease",
-        }} 
+        }}
       />
-      
+
       {/* Modal */}
       <div
         style={{
@@ -2206,7 +2207,7 @@ function AdminLogin({ onLogin, onClose }) {
         <div style={{ textAlign: "center", marginBottom: "16px" }}>
           <Lock size={40} color={colors.coral} />
         </div>
-        
+
         <h2 style={{
           fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
           fontSize: "32px",
@@ -2218,7 +2219,7 @@ function AdminLogin({ onLogin, onClose }) {
         }}>
           ADMIN LOGIN
         </h2>
-        
+
         <form onSubmit={handleSubmit}>
           <input
             type="password"
@@ -2241,7 +2242,7 @@ function AdminLogin({ onLogin, onClose }) {
               transition: "border-color 0.2s ease",
             }}
           />
-          
+
           <button
             type="submit"
             onMouseEnter={() => setButtonHovered(true)}
@@ -2264,7 +2265,7 @@ function AdminLogin({ onLogin, onClose }) {
             LOGIN
           </button>
         </form>
-        
+
         {/* Close button */}
         <button
           onClick={handleClose}
@@ -2284,7 +2285,7 @@ function AdminLogin({ onLogin, onClose }) {
         >
           <X size={24} color={colors.cream} />
         </button>
-        
+
         {/* Error message */}
         {error && (
           <p style={{
@@ -2373,7 +2374,7 @@ function AnimationEditor({ animation, onSave, onClose }) {
         }}>
           {animation ? "EDIT ANIMATION" : "ADD ANIMATION"}
         </h2>
-        
+
         <form onSubmit={handleSubmit}>
           <label style={labelStyle}>TITLE</label>
           <input
@@ -2529,7 +2530,7 @@ function AddAnimationButton({ onClick }) {
 function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) {
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 768);
   const displayDemoReelUrl = demoReelUrl || portfolioData.demoReelUrl;
-  
+
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
     window.addEventListener('resize', handleResize);
@@ -2555,9 +2556,9 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) 
         {`@import url('https://fonts.googleapis.com/css2?family=Notable&display=swap');`}
       </style>
 
-      <div 
+      <div
         id="hero-eye"
-        style={{ 
+        style={{
           margin: isMobile ? "10px 0 5px 0" : "20px 0 10px 0",
           display: "flex",
           justifyContent: "center",
@@ -2783,7 +2784,7 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) 
           </div>
 
           {/* Video container with inner border */}
-          <div style={{ 
+          <div style={{
             padding: "10px",
             backgroundColor: colors.charcoal,
           }}>
@@ -2810,11 +2811,11 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) 
                 />
                 {/* Admin edit buttons for demo reel */}
                 {isAdmin && (
-                  <div style={{ 
-                    position: "absolute", 
-                    bottom: "10px", 
-                    right: "10px", 
-                    display: "flex", 
+                  <div style={{
+                    position: "absolute",
+                    bottom: "10px",
+                    right: "10px",
+                    display: "flex",
                     gap: "8px",
                     zIndex: 10,
                   }}>
@@ -2871,12 +2872,12 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) 
           }}>
             {/* Left line */}
             <div style={{ flex: 1, height: "2px", backgroundColor: colors.coral }} />
-            
+
             {/* Starburst SVG */}
             <svg width="24" height="24" viewBox="0 0 24 24" fill={colors.coral}>
               <polygon points="12,0 13.5,9 24,12 13.5,15 12,24 10.5,15 0,12 10.5,9" />
             </svg>
-            
+
             {/* Right line */}
             <div style={{ flex: 1, height: "2px", backgroundColor: colors.coral }} />
           </div>
@@ -2894,7 +2895,7 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) 
 function PortfolioSection({ animations, onCardClick, isAdmin, onAddClick, onEditClick, onDeleteClick }) {
   // Responsive column count
   const [columnCount, setColumnCount] = useState(3);
-  
+
   useEffect(() => {
     const updateColumns = () => {
       if (window.innerWidth <= 500) {
@@ -2905,7 +2906,7 @@ function PortfolioSection({ animations, onCardClick, isAdmin, onAddClick, onEdit
         setColumnCount(3);
       }
     };
-    
+
     updateColumns();
     window.addEventListener('resize', updateColumns);
     return () => window.removeEventListener('resize', updateColumns);
@@ -2914,12 +2915,12 @@ function PortfolioSection({ animations, onCardClick, isAdmin, onAddClick, onEdit
   return (
     <section style={{ padding: "80px 24px 140px", backgroundColor: colors.cream, position: "relative", zIndex: 1 }}>
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "4px", backgroundColor: colors.coral }} />
-      
+
       <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
         <div style={{ display: "flex", justifyContent: "center", marginBottom: "20px" }}>
           <GeometricBorder width={150} color={colors.charcoal} />
         </div>
-        
+
         <h2
           style={{
             fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
@@ -2966,7 +2967,7 @@ function PortfolioSection({ animations, onCardClick, isAdmin, onAddClick, onEdit
 function AboutPage({ isAdmin, photoUrl, onEditPhoto, onResetPhoto, bio, onEditBio, onResetBio }) {
   const displayPhotoUrl = photoUrl || portfolioData.about.photoUrl;
   const displayBio = bio || portfolioData.about.bio;
-  
+
   return (
     <div
       style={{
@@ -3019,7 +3020,7 @@ function AboutPage({ isAdmin, photoUrl, onEditPhoto, onResetPhoto, bio, onEditBi
             <div style={{ position: "absolute", top: "-10px", right: "-10px", width: "30px", height: "30px", borderTop: `3px solid ${colors.coral}`, borderRight: `3px solid ${colors.coral}` }} />
             <div style={{ position: "absolute", bottom: "-10px", left: "-10px", width: "30px", height: "30px", borderBottom: `3px solid ${colors.coral}`, borderLeft: `3px solid ${colors.coral}` }} />
             <div style={{ position: "absolute", bottom: "-10px", right: "-10px", width: "30px", height: "30px", borderBottom: `3px solid ${colors.coral}`, borderRight: `3px solid ${colors.coral}` }} />
-            
+
             <div style={{ aspectRatio: "1/1", border: `2px solid ${colors.cream}`, overflow: "hidden", position: "relative" }}>
               <img
                 src={displayPhotoUrl}
@@ -3028,12 +3029,12 @@ function AboutPage({ isAdmin, photoUrl, onEditPhoto, onResetPhoto, bio, onEditBi
               />
               {/* Admin edit buttons for photo */}
               {isAdmin && (
-                <div style={{ 
-                  position: "absolute", 
-                  bottom: "10px", 
-                  right: "10px", 
-                  display: "flex", 
-                  gap: "8px" 
+                <div style={{
+                  position: "absolute",
+                  bottom: "10px",
+                  right: "10px",
+                  display: "flex",
+                  gap: "8px"
                 }}>
                   <button
                     onClick={onEditPhoto}
@@ -3095,11 +3096,11 @@ function AboutPage({ isAdmin, photoUrl, onEditPhoto, onResetPhoto, bio, onEditBi
               <div style={{ position: "absolute", top: "10px", right: "10px", width: "30px", height: "30px", borderTop: `2px solid ${colors.coral}`, borderRight: `2px solid ${colors.coral}`, opacity: 0.7 }} />
               <div style={{ position: "absolute", bottom: "10px", left: "10px", width: "30px", height: "30px", borderBottom: `2px solid ${colors.coral}`, borderLeft: `2px solid ${colors.coral}`, opacity: 0.7 }} />
               <div style={{ position: "absolute", bottom: "10px", right: "10px", width: "30px", height: "30px", borderBottom: `2px solid ${colors.coral}`, borderRight: `2px solid ${colors.coral}`, opacity: 0.7 }} />
-              
+
               {/* Horizontal accent lines */}
               <div style={{ position: "absolute", top: "24px", left: "50px", right: "50px", height: "1px", backgroundColor: colors.coral, opacity: 0.6 }} />
               <div style={{ position: "absolute", bottom: "24px", left: "50px", right: "50px", height: "1px", backgroundColor: colors.coral, opacity: 0.6 }} />
-              
+
               {/* Small decorative diamonds */}
               <div style={{ position: "absolute", top: "20px", left: "50%", transform: "translateX(-50%) rotate(45deg)", width: "8px", height: "8px", backgroundColor: colors.coral }} />
               <div style={{ position: "absolute", bottom: "20px", left: "50%", transform: "translateX(-50%) rotate(45deg)", width: "8px", height: "8px", backgroundColor: colors.coral }} />
@@ -3118,14 +3119,14 @@ function AboutPage({ isAdmin, photoUrl, onEditPhoto, onResetPhoto, bio, onEditBi
               >
                 {portfolioData.name}
               </h2>
-              
+
               {/* Decorative divider under name */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "12px", marginBottom: "16px" }}>
                 <div style={{ width: "40px", height: "2px", backgroundColor: colors.coral }} />
                 <div style={{ width: "6px", height: "6px", backgroundColor: colors.coral, transform: "rotate(45deg)" }} />
                 <div style={{ width: "40px", height: "2px", backgroundColor: colors.coral }} />
               </div>
-              
+
               <div style={{ position: "relative" }}>
                 <p
                   style={{
@@ -3143,8 +3144,8 @@ function AboutPage({ isAdmin, photoUrl, onEditPhoto, onResetPhoto, bio, onEditBi
                 </p>
                 {/* Admin edit buttons for bio */}
                 {isAdmin && (
-                  <div style={{ 
-                    display: "flex", 
+                  <div style={{
+                    display: "flex",
                     justifyContent: "center",
                     gap: "8px",
                     marginBottom: "16px",
@@ -3196,10 +3197,10 @@ function AboutPage({ isAdmin, photoUrl, onEditPhoto, onResetPhoto, bio, onEditBi
         </div>
 
         {/* GET IN TOUCH Section */}
-        <div style={{ 
-          display: "flex", 
+        <div style={{
+          display: "flex",
           flexDirection: "column",
-          justifyContent: "center", 
+          justifyContent: "center",
           alignItems: "center",
           marginTop: "40px",
           paddingBottom: "20px",
@@ -3249,7 +3250,7 @@ function HomePage({ animations, isAdmin, onAddClick, onEditClick, onDeleteClick,
 
   return (
     <>
-      <HeroSection 
+      <HeroSection
         isAdmin={isAdmin}
         demoReelUrl={demoReelUrl}
         onEditDemoReel={onEditDemoReel}
@@ -3285,18 +3286,21 @@ export default function App() {
   const [animations, setAnimations] = useState(defaultAnimations);
   const [showNavEye, setShowNavEye] = useState(false);
   const [showNavName, setShowNavName] = useState(false);
-  
+
   // Custom photo and demo reel URLs (admin-editable)
   const [customPhotoUrl, setCustomPhotoUrl] = useState(null);
   const [customDemoReelUrl, setCustomDemoReelUrl] = useState(null);
   const [customBio, setCustomBio] = useState(null);
+  
+  // Flag to prevent saving on initial load
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   // Track hero eye and name visibility for nav toggle
   useEffect(() => {
     const handleScroll = () => {
       const heroEye = document.getElementById("hero-eye");
       const heroName = document.getElementById("hero-name");
-      
+
       if (currentPage === "home") {
         if (heroEye) {
           const rect = heroEye.getBoundingClientRect();
@@ -3318,7 +3322,7 @@ export default function App() {
 
     window.addEventListener("scroll", handleScroll);
     handleScroll(); // Check initial state
-    
+
     return () => window.removeEventListener("scroll", handleScroll);
   }, [currentPage]);
 
@@ -3327,75 +3331,62 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // Load saved animations from localStorage on mount
+  // Subscribe to Firebase data on mount
   useEffect(() => {
     setFadeIn(true);
-    try {
-      const saved = localStorage.getItem("portfolio-animations");
-      if (saved) {
-        setAnimations(JSON.parse(saved));
+    
+    console.log("Initializing Firebase subscriptions...");
+    
+    // Subscribe to settings (photo, demo reel, bio)
+    const unsubSettings = subscribeToSettings((data) => {
+      console.log("Settings received from Firebase:", data);
+      if (data) {
+        if (data.photoUrl) setCustomPhotoUrl(data.photoUrl);
+        if (data.demoReelUrl) setCustomDemoReelUrl(data.demoReelUrl);
+        if (data.bio) setCustomBio(data.bio);
       }
-      // Load custom photo URL
-      const savedPhoto = localStorage.getItem("portfolio-photo-url");
-      if (savedPhoto) {
-        setCustomPhotoUrl(savedPhoto);
+    });
+    
+    // Subscribe to animations
+    const unsubAnimations = subscribeToAnimations((data) => {
+      console.log("Animations received from Firebase:", data);
+      if (data && Array.isArray(data)) {
+        setAnimations(data);
       }
-      // Load custom demo reel URL
-      const savedDemoReel = localStorage.getItem("portfolio-demoreel-url");
-      if (savedDemoReel) {
-        setCustomDemoReelUrl(savedDemoReel);
-      }
-      // Load custom bio
-      const savedBio = localStorage.getItem("portfolio-bio");
-      if (savedBio) {
-        setCustomBio(savedBio);
-      }
-    } catch (e) {
-      console.log("localStorage not available, using defaults");
-    }
+    });
+    
+    // Mark data as loaded after a delay to prevent initial save
+    const timer = setTimeout(() => {
+      console.log("Data loaded flag set to true - saves will now work");
+      setDataLoaded(true);
+    }, 2000);
+    
+    return () => {
+      unsubSettings();
+      unsubAnimations();
+      clearTimeout(timer);
+    };
   }, []);
 
-  // Save animations to localStorage when they change
+  // Save animations to Firebase when they change
   useEffect(() => {
-    try {
-      localStorage.setItem("portfolio-animations", JSON.stringify(animations));
-    } catch (e) {
-      console.log("Could not save to localStorage");
+    if (dataLoaded) {
+      console.log("Saving animations to Firebase...");
+      saveAnimations(animations);
     }
-  }, [animations]);
+  }, [animations, dataLoaded]);
 
-  // Save custom photo URL to localStorage
+  // Save settings to Firebase when they change
   useEffect(() => {
-    try {
-      if (customPhotoUrl) {
-        localStorage.setItem("portfolio-photo-url", customPhotoUrl);
-      }
-    } catch (e) {
-      console.log("Could not save photo URL to localStorage");
+    if (dataLoaded) {
+      console.log("Saving settings to Firebase...");
+      saveSettings({
+        photoUrl: customPhotoUrl,
+        demoReelUrl: customDemoReelUrl,
+        bio: customBio,
+      });
     }
-  }, [customPhotoUrl]);
-
-  // Save custom demo reel URL to localStorage
-  useEffect(() => {
-    try {
-      if (customDemoReelUrl) {
-        localStorage.setItem("portfolio-demoreel-url", customDemoReelUrl);
-      }
-    } catch (e) {
-      console.log("Could not save demo reel URL to localStorage");
-    }
-  }, [customDemoReelUrl]);
-
-  // Save custom bio to localStorage
-  useEffect(() => {
-    try {
-      if (customBio) {
-        localStorage.setItem("portfolio-bio", customBio);
-      }
-    } catch (e) {
-      console.log("Could not save bio to localStorage");
-    }
-  }, [customBio]);
+  }, [customPhotoUrl, customDemoReelUrl, customBio, dataLoaded]);
 
   // Handlers for editing photo and demo reel
   const handleEditPhoto = () => {
@@ -3408,9 +3399,6 @@ export default function App() {
   const handleResetPhoto = () => {
     if (window.confirm("Reset to default photo?")) {
       setCustomPhotoUrl(null);
-      try {
-        localStorage.removeItem("portfolio-photo-url");
-      } catch (e) {}
     }
   };
 
@@ -3424,9 +3412,6 @@ export default function App() {
   const handleResetDemoReel = () => {
     if (window.confirm("Reset to default demo reel?")) {
       setCustomDemoReelUrl(null);
-      try {
-        localStorage.removeItem("portfolio-demoreel-url");
-      } catch (e) {}
     }
   };
 
@@ -3440,9 +3425,6 @@ export default function App() {
   const handleResetBio = () => {
     if (window.confirm("Reset to default bio?")) {
       setCustomBio(null);
-      try {
-        localStorage.removeItem("portfolio-bio");
-      } catch (e) {}
     }
   };
 
@@ -3498,9 +3480,9 @@ export default function App() {
       }}
     >
       <WavyBackground />
-      <Navigation 
-        currentPage={currentPage} 
-        setCurrentPage={setCurrentPage} 
+      <Navigation
+        currentPage={currentPage}
+        setCurrentPage={setCurrentPage}
         showNavEye={showNavEye}
         showNavName={showNavName}
         onEyeClick={scrollToTop}
@@ -3533,11 +3515,11 @@ export default function App() {
         </div>
       )}
 
-      <main style={{ 
-        paddingTop: isAdmin ? "100px" : "64px", 
-        paddingBottom: currentPage === "about" ? "0px" : "80px", 
-        position: "relative", 
-        zIndex: 1 
+      <main style={{
+        paddingTop: isAdmin ? "100px" : "64px",
+        paddingBottom: currentPage === "about" ? "0px" : "80px",
+        position: "relative",
+        zIndex: 1
       }}>
         {currentPage === "home" ? (
           <HomePage
@@ -3551,7 +3533,7 @@ export default function App() {
             onResetDemoReel={handleResetDemoReel}
           />
         ) : (
-          <AboutPage 
+          <AboutPage
             isAdmin={isAdmin}
             photoUrl={customPhotoUrl}
             onEditPhoto={handleEditPhoto}
