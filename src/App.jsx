@@ -19,14 +19,6 @@ const RIVE_EYE_BASE64 = "UklWRQcA84ByxAGmAeoEzATyBLYE5wSYBOwB7ASSB6UB6QTLAa0E8QT
 // ============================================
 // RIVE EYE TRACKING SYSTEM
 // ============================================
-// Rive setup:
-// - State Machine: "State Machine 1"
-// - Inputs: LookX (Number, 0-100, 50=center), LookY (Number, 0-100, 50=center), Blink (Trigger)
-//
-// trackingMode="track": follows mouse across whole window
-// trackingMode="idle": random wandering + blinking (used in navbar)
-
-// Utility functions
 const lerp = (current, target, speed) => current + (target - current) * speed;
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
@@ -83,7 +75,6 @@ const eyeStateManager = {
     if (!this.isRunning) return;
     const delay = 3000 + Math.random() * 4000;
     this.blinkTimeoutId = setTimeout(() => {
-      // 20% chance of double blink
       const useDoubleBlink = Math.random() < 0.2;
       this.instances.forEach(instance => {
         if (instance.inputs) {
@@ -121,8 +112,6 @@ const eyeStateManager = {
     const deltaX = this.mouseX - eyeCenterX;
     const deltaY = this.mouseY - eyeCenterY;
 
-    // Sensitivity: how many pixels from eye center = full look (0 or 100)
-    // 200px away = full look in that direction
     const maxDistance = 200;
 
     const x = clamp(50 + (deltaX / maxDistance) * 50, 0, 100);
@@ -138,13 +127,11 @@ const eyeStateManager = {
     const shouldTrackMouse = !this.isMobile && this.isMouseOnPage && this.mouseX >= 0;
 
     if (shouldTrackMouse && this.instances.length > 0) {
-      // Use first instance's canvas for reference
       const firstCanvas = this.instances[0]?.canvasRef;
       const target = this.getMouseLookTarget(firstCanvas);
       this.targetLookX = target.x;
       this.targetLookY = target.y;
     } else {
-      // Idle wandering
       if (now > this.nextIdleChange) {
         const newTarget = this.getRandomIdleTarget();
         this.idleTargetX = newTarget.x;
@@ -155,7 +142,6 @@ const eyeStateManager = {
       this.targetLookY = this.idleTargetY;
     }
 
-    // Smooth interpolation with deadzone
     const dx = this.targetLookX - this.currentLookX;
     const dy = this.targetLookY - this.currentLookY;
     const speed = shouldTrackMouse ? this.EASING_SPEED : this.IDLE_EASING_SPEED;
@@ -167,14 +153,11 @@ const eyeStateManager = {
       this.currentLookY = lerp(this.currentLookY, this.targetLookY, speed);
     }
 
-    // Apply to all instances
     this.instances.forEach(instance => {
       if (instance.inputs) {
         let lookX, lookY;
 
-        // Only track mouse if instance allows it AND mouse tracking is active
         if (shouldTrackMouse && instance.trackMouse && instance.canvasRef?.current) {
-          // Per-eye calculation when tracking mouse
           const rect = instance.canvasRef.current.getBoundingClientRect();
           const eyeCenterX = rect.left + rect.width / 2;
           const eyeCenterY = rect.top + rect.height / 2;
@@ -182,22 +165,18 @@ const eyeStateManager = {
           const deltaX = this.mouseX - eyeCenterX;
           const deltaY = this.mouseY - eyeCenterY;
 
-          // 200px from eye center = full look in that direction
           const maxDistance = 200;
 
           lookX = clamp(50 + (deltaX / maxDistance) * 50, 0, 100);
           lookY = clamp(50 + (deltaY / maxDistance) * 50, 0, 100);
         } else {
-          // Use shared idle values
           lookX = this.currentLookX;
           lookY = this.currentLookY;
         }
 
-        // Handle both LookX/lookX naming conventions
         const lookXInput = instance.inputs.LookX || instance.inputs.lookX;
         const lookYInput = instance.inputs.LookY || instance.inputs.lookY;
         if (lookXInput) lookXInput.value = lookX;
-        // Invert Y axis: Rive has LookUp=100, LookDown=0, but screen Y is opposite
         if (lookYInput) lookYInput.value = 100 - lookY;
       }
     });
@@ -219,7 +198,6 @@ const eyeStateManager = {
 
       const handleMouseLeave = () => {
         this.isMouseOnPage = false;
-        // Return to center when mouse leaves
         this.targetLookX = 50;
         this.targetLookY = 50;
       };
@@ -243,7 +221,7 @@ const eyeStateManager = {
   }
 };
 
-// Nav bar eye component (smaller, idle mode by default)
+// Nav bar eye component
 function RiveEye({ size = 60 }) {
   const canvasRef = useRef(null);
   const riveRef = useRef(null);
@@ -253,7 +231,7 @@ function RiveEye({ size = 60 }) {
 
   useEffect(() => {
     instanceRef.current.canvasRef = canvasRef;
-    instanceRef.current.trackMouse = false; // Nav eye only does idle animation
+    instanceRef.current.trackMouse = false;
     let isMounted = true;
 
     const initRive = async () => {
@@ -386,7 +364,7 @@ function RiveEyeLarge({ size = 180 }) {
 
   useEffect(() => {
     instanceRef.current.canvasRef = canvasRef;
-    instanceRef.current.trackMouse = true; // Hero eye tracks mouse
+    instanceRef.current.trackMouse = true;
     let isMounted = true;
 
     const initRive = async () => {
@@ -511,8 +489,6 @@ function RiveEyeLarge({ size = 180 }) {
   );
 }
 
-// Fallback SVG eye logo (small version)
-
 const portfolioData = {
   name: "ZACH FOSTER",
   tagline: "Animator & Motion Designer",
@@ -522,11 +498,11 @@ const portfolioData = {
   demoReelUrl: "https://www.youtube.com/embed/m1Cwt0VQ0ZU",
   about: {
     bio: "I'm Zach Foster, an animator and motion designer passionate about bringing ideas to life through movement. With a focus on storytelling and visual impact, I create animations that captivate and communicate.",
-    photoUrl: "data:image/jpeg;base64,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",
+    photoUrl: "/Self portrait.png",
   },
 };
 
-// Admin password (change this!)
+// Admin password
 const ADMIN_PASSWORD = "quikdraw2024";
 
 // Default animations (used if no saved data)
@@ -597,22 +573,20 @@ const defaultAnimations = [
 // HELPER FUNCTIONS
 // ============================================
 
-// Extract YouTube video ID from various URL formats
 function getYouTubeId(url) {
   if (!url) return null;
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+  // Supports: youtube.com/watch?v=, youtu.be/, youtube.com/embed/, youtube.com/shorts/
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*).*/;
   const match = url.match(regExp);
   return (match && match[2].length === 11) ? match[2] : null;
 }
 
-// Get YouTube embed URL
 function getYouTubeEmbedUrl(url, autoplay = false) {
   const videoId = getYouTubeId(url);
   if (!videoId) return null;
   return `https://www.youtube.com/embed/${videoId}?${autoplay ? 'autoplay=1&mute=1&' : ''}rel=0&modestbranding=1`;
 }
 
-// Get YouTube thumbnail
 function getYouTubeThumbnail(url) {
   const videoId = getYouTubeId(url);
   if (!videoId) return null;
@@ -674,14 +648,13 @@ function WavyBackground() {
           x: e.touches[0].clientX,
           y: e.touches[0].clientY,
         };
-        // Only add ripple on tap, not while scrolling
         if (touchPointsRef.current.length > 5) {
           touchPointsRef.current.shift();
         }
         touchPointsRef.current.push({
           x: e.touches[0].clientX,
           y: e.touches[0].clientY,
-          strength: 0.5, // Reduced strength on mobile
+          strength: 0.5,
           time: Date.now(),
         });
       }
@@ -707,7 +680,6 @@ function WavyBackground() {
       const mdy = baseY - my;
       const mdist = Math.sqrt(mdx * mdx + mdy * mdy);
       if (mdist < 100) {
-        // Small, subtle, feathered influence
         const mouseInfluence = Math.exp(-mdist * 0.02) * 15;
         y += mouseInfluence * Math.sin(mdist * 0.04);
       }
@@ -877,7 +849,6 @@ function SocialBox({ href, icon, label, external = false, copyText = null }) {
         setCopied(true);
         setTimeout(() => setCopied(false), 2500);
       }).catch(() => {
-        // Fallback or silent fail if clipboard access denied
         console.log("Clipboard access denied");
       });
     }
@@ -893,7 +864,6 @@ function SocialBox({ href, icon, label, external = false, copyText = null }) {
         position: "relative",
       }}
     >
-      {/* Keyframe animations */}
       <style>
         {`
           @keyframes subtleWiggleSocial {
@@ -977,7 +947,6 @@ function SocialBox({ href, icon, label, external = false, copyText = null }) {
         </span>
       </a>
 
-      {/* Animated COPIED! popup */}
       {copied && (
         <div
           style={{
@@ -991,73 +960,11 @@ function SocialBox({ href, icon, label, external = false, copyText = null }) {
             animation: "subtleWiggleSocial 0.3s ease-out forwards, fadeOutCopiedSocial 2.5s ease-in-out forwards",
           }}
         >
-          {/* Left spark */}
-          <div
-            style={{
-              position: "absolute",
-              left: "-4px",
-              top: "50%",
-              marginTop: "-1px",
-              width: "10px",
-              height: "2px",
-              backgroundColor: colors.coral,
-              borderRadius: "2px",
-              animation: "sparkLeftSocial 0.5s ease-out forwards",
-            }}
-          />
-          {/* Right spark */}
-          <div
-            style={{
-              position: "absolute",
-              right: "-4px",
-              top: "50%",
-              marginTop: "-1px",
-              width: "10px",
-              height: "2px",
-              backgroundColor: colors.coral,
-              borderRadius: "2px",
-              animation: "sparkRightSocial 0.5s ease-out forwards",
-            }}
-          />
-          {/* Bottom left spark */}
-          <div
-            style={{
-              position: "absolute",
-              left: "10%",
-              bottom: "-4px",
-              width: "10px",
-              height: "2px",
-              backgroundColor: colors.coral,
-              borderRadius: "2px",
-              animation: "sparkDownLeftSocial 0.6s ease-out forwards",
-              animationDelay: "0.08s",
-            }}
-          />
-          {/* Bottom right spark */}
-          <div
-            style={{
-              position: "absolute",
-              right: "10%",
-              bottom: "-4px",
-              width: "10px",
-              height: "2px",
-              backgroundColor: colors.coral,
-              borderRadius: "2px",
-              animation: "sparkDownRightSocial 0.6s ease-out forwards",
-              animationDelay: "0.08s",
-            }}
-          />
-          <span
-            style={{
-              fontSize: "12px",
-              letterSpacing: "2px",
-              color: colors.coral,
-              fontWeight: "bold",
-              whiteSpace: "nowrap",
-            }}
-          >
-            COPIED!
-          </span>
+          <div style={{ position: "absolute", left: "-4px", top: "50%", marginTop: "-1px", width: "10px", height: "2px", backgroundColor: colors.coral, borderRadius: "2px", animation: "sparkLeftSocial 0.5s ease-out forwards" }} />
+          <div style={{ position: "absolute", right: "-4px", top: "50%", marginTop: "-1px", width: "10px", height: "2px", backgroundColor: colors.coral, borderRadius: "2px", animation: "sparkRightSocial 0.5s ease-out forwards" }} />
+          <div style={{ position: "absolute", left: "10%", bottom: "-4px", width: "10px", height: "2px", backgroundColor: colors.coral, borderRadius: "2px", animation: "sparkDownLeftSocial 0.6s ease-out forwards", animationDelay: "0.08s" }} />
+          <div style={{ position: "absolute", right: "10%", bottom: "-4px", width: "10px", height: "2px", backgroundColor: colors.coral, borderRadius: "2px", animation: "sparkDownRightSocial 0.6s ease-out forwards", animationDelay: "0.08s" }} />
+          <span style={{ fontSize: "12px", letterSpacing: "2px", color: colors.coral, fontWeight: "bold", whiteSpace: "nowrap" }}>COPIED!</span>
         </div>
       )}
     </div>
@@ -1068,7 +975,6 @@ function SocialBox({ href, icon, label, external = false, copyText = null }) {
 function ContactButton({ inverted = false }) {
   const [isHovered, setIsHovered] = useState(false);
 
-  // Glass effect colors
   const bgGradient = inverted
     ? (isHovered
         ? "linear-gradient(135deg, rgba(28, 28, 28, 0.5) 0%, rgba(28, 28, 28, 0.3) 100%)"
@@ -1138,7 +1044,7 @@ function ScrollIndicator({ hidden = false }) {
 
   useEffect(() => {
     const handleScroll = () => {
-      if (isDragging) return; // Don't update while dragging
+      if (isDragging) return;
       const scrollTop = window.scrollY;
       const docHeight = document.documentElement.scrollHeight - window.innerHeight;
       const progress = docHeight > 0 ? scrollTop / docHeight : 0;
@@ -1151,7 +1057,6 @@ function ScrollIndicator({ hidden = false }) {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [isDragging]);
 
-  // Handle drag
   useEffect(() => {
     if (!isDragging) return;
 
@@ -1163,7 +1068,6 @@ function ScrollIndicator({ hidden = false }) {
 
       setScrollProgress(progress);
 
-      // Scroll the page
       const docHeight = document.documentElement.scrollHeight - window.innerHeight;
       window.scrollTo({ top: progress * docHeight });
     };
@@ -1185,7 +1089,6 @@ function ScrollIndicator({ hidden = false }) {
   const trackHeight = 150;
   const diamondPosition = scrollProgress * (trackHeight - 10);
 
-  // Hide on mobile
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
 
   const handleTrackClick = (e) => {
@@ -1198,7 +1101,6 @@ function ScrollIndicator({ hidden = false }) {
     window.scrollTo({ top: progress * docHeight, behavior: "smooth" });
   };
 
-  // Don't render on mobile
   if (isMobile) return null;
 
   return (
@@ -1261,7 +1163,7 @@ function ScrollIndicator({ hidden = false }) {
 // COMPONENTS
 // ============================================
 
-// Fixed Footer
+// Fixed Footer - Updated copyright to 2026
 function Footer({ onAdminClick, isAdmin }) {
   const [emailCopied, setEmailCopied] = useState(false);
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 768);
@@ -1278,7 +1180,6 @@ function Footer({ onAdminClick, isAdmin }) {
       setEmailCopied(true);
       setTimeout(() => setEmailCopied(false), 2500);
     }).catch(() => {
-      // Fallback or silent fail if clipboard access denied
       console.log("Clipboard access denied");
     });
   };
@@ -1300,7 +1201,6 @@ function Footer({ onAdminClick, isAdmin }) {
         fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
       }}
     >
-      {/* Keyframe animations for copied effect */}
       <style>
         {`
           @keyframes subtleWiggle {
@@ -1334,10 +1234,9 @@ function Footer({ onAdminClick, isAdmin }) {
         `}
       </style>
 
-      {/* Left side: Copyright + Lock */}
       <div style={{ display: "flex", alignItems: "center", gap: isMobile ? "8px" : "16px" }}>
         <p style={{ color: colors.cream, fontSize: isMobile ? "11px" : "14px", margin: 0, letterSpacing: "1px" }}>
-          © 2024 Zach Foster. All rights reserved.
+          © 2026 Zach Foster. All rights reserved.
         </p>
         <button
           onClick={onAdminClick}
@@ -1358,9 +1257,7 @@ function Footer({ onAdminClick, isAdmin }) {
         </button>
       </div>
 
-      {/* Right side: Social icons */}
       <div style={{ display: "flex", gap: isMobile ? "24px" : "40px", alignItems: "center" }}>
-        {/* Email button with copy feedback */}
         <div style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center" }}>
           <button
             onClick={handleEmailClick}
@@ -1393,73 +1290,11 @@ function Footer({ onAdminClick, isAdmin }) {
                 animation: "subtleWiggle 0.3s ease-out forwards, fadeOutCopied 2.5s ease-in-out forwards",
               }}
             >
-              {/* Left spark */}
-              <div
-                style={{
-                  position: "absolute",
-                  left: "-4px",
-                  top: "50%",
-                  marginTop: "-1px",
-                  width: "10px",
-                  height: "2px",
-                  backgroundColor: colors.coral,
-                  borderRadius: "2px",
-                  animation: "sparkLeft 0.5s ease-out forwards",
-                }}
-              />
-              {/* Right spark */}
-              <div
-                style={{
-                  position: "absolute",
-                  right: "-4px",
-                  top: "50%",
-                  marginTop: "-1px",
-                  width: "10px",
-                  height: "2px",
-                  backgroundColor: colors.coral,
-                  borderRadius: "2px",
-                  animation: "sparkRight 0.5s ease-out forwards",
-                }}
-              />
-              {/* Bottom left spark */}
-              <div
-                style={{
-                  position: "absolute",
-                  left: "10%",
-                  bottom: "-4px",
-                  width: "10px",
-                  height: "2px",
-                  backgroundColor: colors.coral,
-                  borderRadius: "2px",
-                  animation: "sparkDownLeft 0.6s ease-out forwards",
-                  animationDelay: "0.08s",
-                }}
-              />
-              {/* Bottom right spark */}
-              <div
-                style={{
-                  position: "absolute",
-                  right: "10%",
-                  bottom: "-4px",
-                  width: "10px",
-                  height: "2px",
-                  backgroundColor: colors.coral,
-                  borderRadius: "2px",
-                  animation: "sparkDownRight 0.6s ease-out forwards",
-                  animationDelay: "0.08s",
-                }}
-              />
-              <span
-                style={{
-                  fontSize: "10px",
-                  letterSpacing: "1px",
-                  color: colors.coral,
-                  fontWeight: "bold",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                COPIED!
-              </span>
+              <div style={{ position: "absolute", left: "-4px", top: "50%", marginTop: "-1px", width: "10px", height: "2px", backgroundColor: colors.coral, borderRadius: "2px", animation: "sparkLeft 0.5s ease-out forwards" }} />
+              <div style={{ position: "absolute", right: "-4px", top: "50%", marginTop: "-1px", width: "10px", height: "2px", backgroundColor: colors.coral, borderRadius: "2px", animation: "sparkRight 0.5s ease-out forwards" }} />
+              <div style={{ position: "absolute", left: "10%", bottom: "-4px", width: "10px", height: "2px", backgroundColor: colors.coral, borderRadius: "2px", animation: "sparkDownLeft 0.6s ease-out forwards", animationDelay: "0.08s" }} />
+              <div style={{ position: "absolute", right: "10%", bottom: "-4px", width: "10px", height: "2px", backgroundColor: colors.coral, borderRadius: "2px", animation: "sparkDownRight 0.6s ease-out forwards", animationDelay: "0.08s" }} />
+              <span style={{ fontSize: "10px", letterSpacing: "1px", color: colors.coral, fontWeight: "bold", whiteSpace: "nowrap" }}>COPIED!</span>
             </div>
           )}
         </div>
@@ -1490,8 +1325,16 @@ function Footer({ onAdminClick, isAdmin }) {
   );
 }
 
-// Navigation
+// Navigation - Fixed mobile alignment
 function Navigation({ currentPage, setCurrentPage, showNavEye = false, showNavName = false, onEyeClick }) {
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   return (
     <nav
       style={{
@@ -1510,7 +1353,7 @@ function Navigation({ currentPage, setCurrentPage, showNavEye = false, showNavNa
         minHeight: "50px",
       }}
     >
-      {/* Left container - fixed width for balance */}
+      {/* Left container */}
       <div style={{ width: "80px", flexShrink: 0, display: "flex", alignItems: "center" }}>
         <button
           onClick={() => {
@@ -1537,7 +1380,7 @@ function Navigation({ currentPage, setCurrentPage, showNavEye = false, showNavNa
         </button>
       </div>
 
-      {/* Name in center - thick chunky font - CLICKABLE */}
+      {/* Name in center - FIXED: Added marginTop for mobile alignment */}
       <div
         onClick={() => {
           if (onEyeClick) onEyeClick();
@@ -1554,19 +1397,19 @@ function Navigation({ currentPage, setCurrentPage, showNavEye = false, showNavNa
           overflow: "hidden",
           cursor: showNavName ? "pointer" : "default",
           pointerEvents: showNavName ? "auto" : "none",
+          marginTop: isMobile ? "4px" : "0", // Push text down slightly on mobile
         }}
       >
-        {/* Load Notable font */}
         <style>
           {`@import url('https://fonts.googleapis.com/css2?family=Notable&display=swap');`}
         </style>
         <span
           style={{
             fontFamily: "'Notable', sans-serif",
-            fontSize: "clamp(20px, 5vw, 32px)", // Responsive font size
+            fontSize: "clamp(20px, 5vw, 32px)",
             fontWeight: "400",
             color: colors.coral,
-            letterSpacing: "clamp(1px, 0.5vw, 2px)", // Responsive letter spacing
+            letterSpacing: "clamp(1px, 0.5vw, 2px)",
             whiteSpace: "nowrap",
             lineHeight: 1,
           }}
@@ -1575,7 +1418,7 @@ function Navigation({ currentPage, setCurrentPage, showNavEye = false, showNavNa
         </span>
       </div>
 
-      {/* Right container - fixed width for balance */}
+      {/* Right container */}
       <div style={{ width: "80px", flexShrink: 0, display: "flex", justifyContent: "flex-end" }}>
         <AboutMeButton currentPage={currentPage} setCurrentPage={setCurrentPage} />
       </div>
@@ -1599,7 +1442,6 @@ function AboutMeButton({ currentPage, setCurrentPage }) {
   }, []);
 
   useEffect(() => {
-    // Only show timed bubble on desktop
     if (isMobile) return;
 
     let innerTimer;
@@ -1631,7 +1473,6 @@ function AboutMeButton({ currentPage, setCurrentPage }) {
         alignItems: "center",
       }}
     >
-      {/* Keyframe animations */}
       <style>
         {`
           @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
@@ -1648,7 +1489,6 @@ function AboutMeButton({ currentPage, setCurrentPage }) {
         `}
       </style>
 
-      {/* Speech bubble - desktop only */}
       {showBubble && (
         <div
           style={{
@@ -1677,7 +1517,6 @@ function AboutMeButton({ currentPage, setCurrentPage }) {
           >
             ABOUT ME
           </span>
-          {/* Speech bubble arrow pointing right */}
           <div
             style={{
               position: "absolute",
@@ -1711,7 +1550,6 @@ function AboutMeButton({ currentPage, setCurrentPage }) {
         <PersonIcon size={36} color={isHovered ? colors.cream : colors.coral} />
       </button>
 
-      {/* Mobile label beneath icon */}
       {isMobile && !isOnAboutPage && (
         <span
           style={{
@@ -1736,7 +1574,6 @@ function AnimationCard({ animation, onClick, lightMode = false, isAdmin = false,
   const [showVideo, setShowVideo] = useState(false);
   const hoverTimeoutRef = useRef(null);
 
-  // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
       if (hoverTimeoutRef.current) {
@@ -1755,7 +1592,6 @@ function AnimationCard({ animation, onClick, lightMode = false, isAdmin = false,
 
   const handleMouseEnter = () => {
     setIsHovered(true);
-    // Delay video load slightly for better UX
     hoverTimeoutRef.current = setTimeout(() => {
       setShowVideo(true);
     }, 500);
@@ -1783,7 +1619,6 @@ function AnimationCard({ animation, onClick, lightMode = false, isAdmin = false,
         position: "relative",
       }}
     >
-      {/* Admin controls */}
       {isAdmin && (
         <div style={{
           position: "absolute",
@@ -1828,7 +1663,6 @@ function AnimationCard({ animation, onClick, lightMode = false, isAdmin = false,
           border: `2px solid ${colors.coral}`,
         }}
       >
-        {/* Thumbnail */}
         <img
           src={thumbnailUrl}
           alt={animation.title}
@@ -1842,7 +1676,6 @@ function AnimationCard({ animation, onClick, lightMode = false, isAdmin = false,
           }}
         />
 
-        {/* Video preview on hover */}
         {showVideo && embedUrl && (
           <iframe
             src={embedUrl}
@@ -1860,7 +1693,6 @@ function AnimationCard({ animation, onClick, lightMode = false, isAdmin = false,
           />
         )}
 
-        {/* Play button overlay */}
         <div
           style={{
             position: "absolute",
@@ -1890,7 +1722,6 @@ function AnimationCard({ animation, onClick, lightMode = false, isAdmin = false,
           )}
         </div>
 
-        {/* Hover gradient */}
         <div
           style={{
             position: "absolute",
@@ -1952,7 +1783,6 @@ function AnimationModal({ isOpen, onClose, animation }) {
 
   const embedUrl = getYouTubeEmbedUrl(animation.youtubeUrl);
 
-  // Starburst component
   const Starburst = ({ size = 24, style }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill={colors.coral} style={style}>
       <polygon points="12,0 13.5,9 24,12 13.5,15 12,24 10.5,15 0,12 10.5,9" />
@@ -1961,7 +1791,6 @@ function AnimationModal({ isOpen, onClose, animation }) {
 
   return (
     <>
-      {/* Backdrop */}
       <div
         onClick={onClose}
         style={{
@@ -1972,7 +1801,6 @@ function AnimationModal({ isOpen, onClose, animation }) {
         }}
       />
 
-      {/* Modal wrapper - for positioning starbursts */}
       <div
         style={{
           position: "fixed",
@@ -1984,7 +1812,6 @@ function AnimationModal({ isOpen, onClose, animation }) {
           zIndex: 201,
         }}
       >
-        {/* Starbursts at corners of this wrapper */}
         <Starburst size={70} style={{ position: "absolute", top: "-35px", right: "-35px", zIndex: 5 }} />
         <Starburst size={45} style={{ position: "absolute", top: "20px", right: "-25px", opacity: 0.7, zIndex: 5 }} />
         <Starburst size={32} style={{ position: "absolute", top: "-22px", right: "25px", opacity: 0.5, zIndex: 5 }} />
@@ -1992,7 +1819,6 @@ function AnimationModal({ isOpen, onClose, animation }) {
         <Starburst size={65} style={{ position: "absolute", bottom: "-32px", left: "-32px", zIndex: 5 }} />
         <Starburst size={40} style={{ position: "absolute", bottom: "18px", left: "-22px", opacity: 0.7, zIndex: 5 }} />
 
-        {/* Actual modal box */}
         <div
           style={{
             maxHeight: "85vh",
@@ -2002,7 +1828,6 @@ function AnimationModal({ isOpen, onClose, animation }) {
             overflow: "hidden",
           }}
         >
-          {/* Close button - diamond shape, cream bg with dark gray X */}
           <button
             onClick={onClose}
             onMouseEnter={() => setCloseHovered(true)}
@@ -2032,12 +1857,10 @@ function AnimationModal({ isOpen, onClose, animation }) {
           </button>
 
           <div style={{ padding: "24px", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-            {/* Load Bebas Neue font */}
             <style>
               {`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');`}
             </style>
 
-            {/* Embedded YouTube video with coral border */}
             {embedUrl && (
               <div
                 style={{
@@ -2063,7 +1886,6 @@ function AnimationModal({ isOpen, onClose, animation }) {
               </div>
             )}
 
-            {/* Title row with duration and year */}
             <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "12px", flexWrap: "wrap" }}>
               <h2
                 style={{
@@ -2109,7 +1931,6 @@ function AnimationModal({ isOpen, onClose, animation }) {
               </span>
             </div>
 
-            {/* Scrollable description area */}
             <div
               style={{
                 flex: 1,
@@ -2141,14 +1962,12 @@ function AnimationModal({ isOpen, onClose, animation }) {
 // ADMIN PANEL
 // ============================================
 
-// Login Modal
 function AdminLogin({ onLogin, onClose }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [buttonHovered, setButtonHovered] = useState(false);
 
-  // Trigger animation on mount
   useEffect(() => {
     setTimeout(() => setIsVisible(true), 10);
   }, []);
@@ -2170,7 +1989,6 @@ function AdminLogin({ onLogin, onClose }) {
 
   return (
     <>
-      {/* Backdrop */}
       <div
         onClick={handleClose}
         style={{
@@ -2183,7 +2001,6 @@ function AdminLogin({ onLogin, onClose }) {
         }}
       />
 
-      {/* Modal */}
       <div
         style={{
           position: "fixed",
@@ -2203,7 +2020,6 @@ function AdminLogin({ onLogin, onClose }) {
           transition: "all 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
         }}
       >
-        {/* Lock icon decoration */}
         <div style={{ textAlign: "center", marginBottom: "16px" }}>
           <Lock size={40} color={colors.coral} />
         </div>
@@ -2266,7 +2082,6 @@ function AdminLogin({ onLogin, onClose }) {
           </button>
         </form>
 
-        {/* Close button */}
         <button
           onClick={handleClose}
           style={{
@@ -2286,7 +2101,6 @@ function AdminLogin({ onLogin, onClose }) {
           <X size={24} color={colors.cream} />
         </button>
 
-        {/* Error message */}
         {error && (
           <p style={{
             textAlign: "center",
@@ -2303,7 +2117,6 @@ function AdminLogin({ onLogin, onClose }) {
   );
 }
 
-// Add/Edit Animation Modal
 function AnimationEditor({ animation, onSave, onClose }) {
   const [formData, setFormData] = useState(animation || {
     title: "",
@@ -2395,7 +2208,7 @@ function AnimationEditor({ animation, onSave, onClose }) {
             style={inputStyle}
           />
 
-          <label style={labelStyle}>THUMBNAIL URL (optional - uses YouTube thumbnail if empty)</label>
+          <label style={labelStyle}>THUMBNAIL URL (optional)</label>
           <input
             type="url"
             value={formData.thumbnail}
@@ -2489,7 +2302,6 @@ function AnimationEditor({ animation, onSave, onClose }) {
   );
 }
 
-// Admin Add Button
 function AddAnimationButton({ onClick }) {
   const [isHovered, setIsHovered] = useState(false);
 
@@ -2551,7 +2363,6 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) 
         textAlign: "center",
       }}
     >
-      {/* Load Notable font for title */}
       <style>
         {`@import url('https://fonts.googleapis.com/css2?family=Notable&display=swap');`}
       </style>
@@ -2579,7 +2390,6 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) 
           position: "relative",
         }}
       >
-        {/* Feathered shadow background */}
         <div
           style={{
             position: "absolute",
@@ -2625,7 +2435,6 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) 
         </h1>
       </div>
 
-      {/* Starburst decoration under FOSTER */}
       <div
         style={{
           display: "flex",
@@ -2638,26 +2447,21 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) 
           padding: "0 24px",
         }}
       >
-        {/* Left starburst */}
         <svg width="18" height="18" viewBox="0 0 24 24" fill={colors.cream} style={{ flexShrink: 0 }}>
           <polygon points="12,0 13.5,9 24,12 13.5,15 12,24 10.5,15 0,12 10.5,9" />
         </svg>
-        {/* Line */}
         <div style={{ flex: 1, height: "2px", backgroundColor: colors.cream }} />
-        {/* Right starburst */}
         <svg width="18" height="18" viewBox="0 0 24 24" fill={colors.cream} style={{ flexShrink: 0 }}>
           <polygon points="12,0 13.5,9 24,12 13.5,15 12,24 10.5,15 0,12 10.5,9" />
         </svg>
       </div>
 
-      {/* Subtitle with soft shadow background */}
       <div
         style={{
           position: "relative",
           marginBottom: "25px",
         }}
       >
-        {/* Feathered shadow background */}
         <div
           style={{
             position: "absolute",
@@ -2688,7 +2492,7 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) 
         </p>
       </div>
 
-      {/* Demo Reel Section - Mid-Century Modern Style */}
+      {/* Demo Reel Section */}
       <div
         style={{
           width: "100%",
@@ -2697,51 +2501,12 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) 
           position: "relative",
         }}
       >
-        {/* Decorative background shapes */}
-        <div style={{
-          position: "absolute",
-          top: "-15px",
-          left: "-15px",
-          width: "30px",
-          height: "30px",
-          border: `3px solid ${colors.coral}`,
-          transform: "rotate(45deg)",
-        }} />
-        <div style={{
-          position: "absolute",
-          top: "-15px",
-          right: "-15px",
-          width: "30px",
-          height: "30px",
-          border: `3px solid ${colors.coral}`,
-          transform: "rotate(45deg)",
-        }} />
-        <div style={{
-          position: "absolute",
-          bottom: "-15px",
-          left: "-15px",
-          width: "30px",
-          height: "30px",
-          border: `3px solid ${colors.coral}`,
-          transform: "rotate(45deg)",
-        }} />
-        <div style={{
-          position: "absolute",
-          bottom: "-15px",
-          right: "-15px",
-          width: "30px",
-          height: "30px",
-          border: `3px solid ${colors.coral}`,
-          transform: "rotate(45deg)",
-        }} />
+        <div style={{ position: "absolute", top: "-15px", left: "-15px", width: "30px", height: "30px", border: `3px solid ${colors.coral}`, transform: "rotate(45deg)" }} />
+        <div style={{ position: "absolute", top: "-15px", right: "-15px", width: "30px", height: "30px", border: `3px solid ${colors.coral}`, transform: "rotate(45deg)" }} />
+        <div style={{ position: "absolute", bottom: "-15px", left: "-15px", width: "30px", height: "30px", border: `3px solid ${colors.coral}`, transform: "rotate(45deg)" }} />
+        <div style={{ position: "absolute", bottom: "-15px", right: "-15px", width: "30px", height: "30px", border: `3px solid ${colors.coral}`, transform: "rotate(45deg)" }} />
 
-        {/* Main container */}
-        <div style={{
-          position: "relative",
-          backgroundColor: colors.charcoal,
-          border: `3px solid ${colors.coral}`,
-        }}>
-          {/* Header bar with starburst pattern */}
+        <div style={{ position: "relative", backgroundColor: colors.charcoal, border: `3px solid ${colors.coral}` }}>
           <div
             style={{
               backgroundColor: colors.coral,
@@ -2754,14 +2519,12 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) 
               overflow: "hidden",
             }}
           >
-            {/* Left decorative element - lines */}
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <div style={{ width: "40px", height: "2px", backgroundColor: colors.charcoal }} />
               <div style={{ width: "8px", height: "8px", backgroundColor: colors.charcoal, transform: "rotate(45deg)" }} />
               <div style={{ width: "20px", height: "2px", backgroundColor: colors.charcoal }} />
             </div>
 
-            {/* Title */}
             <h2
               style={{
                 fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
@@ -2775,7 +2538,6 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) 
               DEMO REEL
             </h2>
 
-            {/* Right decorative element - lines */}
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <div style={{ width: "20px", height: "2px", backgroundColor: colors.charcoal }} />
               <div style={{ width: "8px", height: "8px", backgroundColor: colors.charcoal, transform: "rotate(45deg)" }} />
@@ -2783,16 +2545,8 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) 
             </div>
           </div>
 
-          {/* Video container with inner border */}
-          <div style={{
-            padding: "10px",
-            backgroundColor: colors.charcoal,
-          }}>
-            <div style={{
-              position: "relative",
-              border: `2px solid ${colors.cream}`,
-            }}>
-              {/* Corner accents inside video frame */}
+          <div style={{ padding: "10px", backgroundColor: colors.charcoal }}>
+            <div style={{ position: "relative", border: `2px solid ${colors.cream}` }}>
               <div style={{ position: "absolute", top: "-1px", left: "-1px", width: "20px", height: "20px", borderTop: `3px solid ${colors.coral}`, borderLeft: `3px solid ${colors.coral}`, zIndex: 2 }} />
               <div style={{ position: "absolute", top: "-1px", right: "-1px", width: "20px", height: "20px", borderTop: `3px solid ${colors.coral}`, borderRight: `3px solid ${colors.coral}`, zIndex: 2 }} />
               <div style={{ position: "absolute", bottom: "-1px", left: "-1px", width: "20px", height: "20px", borderBottom: `3px solid ${colors.coral}`, borderLeft: `3px solid ${colors.coral}`, zIndex: 2 }} />
@@ -2809,16 +2563,8 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) 
                   allowFullScreen
                   style={{ display: "block" }}
                 />
-                {/* Admin edit buttons for demo reel */}
                 {isAdmin && (
-                  <div style={{
-                    position: "absolute",
-                    bottom: "10px",
-                    right: "10px",
-                    display: "flex",
-                    gap: "8px",
-                    zIndex: 10,
-                  }}>
+                  <div style={{ position: "absolute", bottom: "10px", right: "10px", display: "flex", gap: "8px", zIndex: 10 }}>
                     <button
                       onClick={onEditDemoReel}
                       style={{
@@ -2860,7 +2606,6 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) 
             </div>
           </div>
 
-          {/* Bottom decorative bar with starburst */}
           <div style={{
             backgroundColor: colors.charcoal,
             padding: "8px 24px",
@@ -2870,15 +2615,10 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) 
             gap: "12px",
             borderTop: `2px solid ${colors.coral}`,
           }}>
-            {/* Left line */}
             <div style={{ flex: 1, height: "2px", backgroundColor: colors.coral }} />
-
-            {/* Starburst SVG */}
             <svg width="24" height="24" viewBox="0 0 24 24" fill={colors.coral}>
               <polygon points="12,0 13.5,9 24,12 13.5,15 12,24 10.5,15 0,12 10.5,9" />
             </svg>
-
-            {/* Right line */}
             <div style={{ flex: 1, height: "2px", backgroundColor: colors.coral }} />
           </div>
         </div>
@@ -2893,7 +2633,6 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) 
 
 // Portfolio Grid Section
 function PortfolioSection({ animations, onCardClick, isAdmin, onAddClick, onEditClick, onDeleteClick }) {
-  // Responsive column count
   const [columnCount, setColumnCount] = useState(3);
 
   useEffect(() => {
@@ -2971,9 +2710,9 @@ function AboutPage({ isAdmin, photoUrl, onEditPhoto, onResetPhoto, bio, onEditBi
   return (
     <div
       style={{
-        minHeight: "auto", // Let content determine height
+        minHeight: "auto",
         paddingTop: "15px",
-        paddingBottom: "100px", // Room for scrolling past footer
+        paddingBottom: "100px",
         position: "relative",
         zIndex: 1,
         display: "flex",
@@ -2988,7 +2727,7 @@ function AboutPage({ isAdmin, photoUrl, onEditPhoto, onResetPhoto, bio, onEditBi
         <h1
           style={{
             fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
-            fontSize: "clamp(28px, 6vw, 38px)", // Responsive title
+            fontSize: "clamp(28px, 6vw, 38px)",
             fontWeight: "bold",
             color: colors.coral,
             marginBottom: "15px",
@@ -3021,21 +2760,17 @@ function AboutPage({ isAdmin, photoUrl, onEditPhoto, onResetPhoto, bio, onEditBi
             <div style={{ position: "absolute", bottom: "-10px", left: "-10px", width: "30px", height: "30px", borderBottom: `3px solid ${colors.coral}`, borderLeft: `3px solid ${colors.coral}` }} />
             <div style={{ position: "absolute", bottom: "-10px", right: "-10px", width: "30px", height: "30px", borderBottom: `3px solid ${colors.coral}`, borderRight: `3px solid ${colors.coral}` }} />
 
-            <div style={{ aspectRatio: "1/1", border: `2px solid ${colors.cream}`, overflow: "hidden", position: "relative" }}>
+            <div style={{ aspectRatio: "1/1", border: `2px solid ${colors.cream}`, overflow: "hidden", position: "relative", backgroundColor: colors.charcoal }}>
               <img
                 src={displayPhotoUrl}
                 alt="Zach Foster"
                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }}
               />
-              {/* Admin edit buttons for photo */}
               {isAdmin && (
-                <div style={{
-                  position: "absolute",
-                  bottom: "10px",
-                  right: "10px",
-                  display: "flex",
-                  gap: "8px"
-                }}>
+                <div style={{ position: "absolute", bottom: "10px", right: "10px", display: "flex", gap: "8px" }}>
                   <button
                     onClick={onEditPhoto}
                     style={{
@@ -3076,9 +2811,7 @@ function AboutPage({ isAdmin, photoUrl, onEditPhoto, onResetPhoto, bio, onEditBi
             </div>
           </div>
 
-          {/* Mid-century styled content box */}
           <div style={{ position: "relative" }}>
-            {/* Main content container - glass effect */}
             <div
               style={{
                 position: "relative",
@@ -3091,17 +2824,14 @@ function AboutPage({ isAdmin, photoUrl, onEditPhoto, onResetPhoto, bio, onEditBi
                 padding: "30px",
               }}
             >
-              {/* Decorative corner accents - coral for glass effect */}
               <div style={{ position: "absolute", top: "10px", left: "10px", width: "30px", height: "30px", borderTop: `2px solid ${colors.coral}`, borderLeft: `2px solid ${colors.coral}`, opacity: 0.7 }} />
               <div style={{ position: "absolute", top: "10px", right: "10px", width: "30px", height: "30px", borderTop: `2px solid ${colors.coral}`, borderRight: `2px solid ${colors.coral}`, opacity: 0.7 }} />
               <div style={{ position: "absolute", bottom: "10px", left: "10px", width: "30px", height: "30px", borderBottom: `2px solid ${colors.coral}`, borderLeft: `2px solid ${colors.coral}`, opacity: 0.7 }} />
               <div style={{ position: "absolute", bottom: "10px", right: "10px", width: "30px", height: "30px", borderBottom: `2px solid ${colors.coral}`, borderRight: `2px solid ${colors.coral}`, opacity: 0.7 }} />
 
-              {/* Horizontal accent lines */}
               <div style={{ position: "absolute", top: "24px", left: "50px", right: "50px", height: "1px", backgroundColor: colors.coral, opacity: 0.6 }} />
               <div style={{ position: "absolute", bottom: "24px", left: "50px", right: "50px", height: "1px", backgroundColor: colors.coral, opacity: 0.6 }} />
 
-              {/* Small decorative diamonds */}
               <div style={{ position: "absolute", top: "20px", left: "50%", transform: "translateX(-50%) rotate(45deg)", width: "8px", height: "8px", backgroundColor: colors.coral }} />
               <div style={{ position: "absolute", bottom: "20px", left: "50%", transform: "translateX(-50%) rotate(45deg)", width: "8px", height: "8px", backgroundColor: colors.coral }} />
 
@@ -3120,7 +2850,6 @@ function AboutPage({ isAdmin, photoUrl, onEditPhoto, onResetPhoto, bio, onEditBi
                 {portfolioData.name}
               </h2>
 
-              {/* Decorative divider under name */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "12px", marginBottom: "16px" }}>
                 <div style={{ width: "40px", height: "2px", backgroundColor: colors.coral }} />
                 <div style={{ width: "6px", height: "6px", backgroundColor: colors.coral, transform: "rotate(45deg)" }} />
@@ -3142,14 +2871,8 @@ function AboutPage({ isAdmin, photoUrl, onEditPhoto, onResetPhoto, bio, onEditBi
                 >
                   {displayBio}
                 </p>
-                {/* Admin edit buttons for bio */}
                 {isAdmin && (
-                  <div style={{
-                    display: "flex",
-                    justifyContent: "center",
-                    gap: "8px",
-                    marginBottom: "16px",
-                  }}>
+                  <div style={{ display: "flex", justifyContent: "center", gap: "8px", marginBottom: "16px" }}>
                     <button
                       onClick={onEditBio}
                       style={{
@@ -3196,7 +2919,6 @@ function AboutPage({ isAdmin, photoUrl, onEditPhoto, onResetPhoto, bio, onEditBi
           </div>
         </div>
 
-        {/* GET IN TOUCH Section */}
         <div style={{
           display: "flex",
           flexDirection: "column",
@@ -3274,7 +2996,7 @@ function HomePage({ animations, isAdmin, onAddClick, onEditClick, onDeleteClick,
 }
 
 // ============================================
-// MAIN APP
+// MAIN APP - FIXED: No automatic saves on load
 // ============================================
 export default function App() {
   const [currentPage, setCurrentPage] = useState("home");
@@ -3287,13 +3009,12 @@ export default function App() {
   const [showNavEye, setShowNavEye] = useState(false);
   const [showNavName, setShowNavName] = useState(false);
 
-  // Custom photo and demo reel URLs (admin-editable)
   const [customPhotoUrl, setCustomPhotoUrl] = useState(null);
   const [customDemoReelUrl, setCustomDemoReelUrl] = useState(null);
   const [customBio, setCustomBio] = useState(null);
   
-  // Flag to prevent saving on initial load
-  const [dataLoaded, setDataLoaded] = useState(false);
+  // Track if data has been loaded from Firebase
+  const firebaseLoadedRef = useRef(false);
 
   // Track hero eye and name visibility for nav toggle
   useEffect(() => {
@@ -3309,41 +3030,39 @@ export default function App() {
         }
         if (heroName) {
           const rect = heroName.getBoundingClientRect();
-          // Show nav name sooner - when hero name top goes above 120px from viewport top
           const isHeroNameVisible = rect.top > 120;
           setShowNavName(!isHeroNameVisible);
         }
       } else if (currentPage === "about") {
-        // Always show nav eye and name on about page
         setShowNavEye(true);
         setShowNavName(true);
       }
     };
 
     window.addEventListener("scroll", handleScroll);
-    handleScroll(); // Check initial state
+    handleScroll();
 
     return () => window.removeEventListener("scroll", handleScroll);
   }, [currentPage]);
 
-  // Scroll to top handler
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // Subscribe to Firebase data on mount
+  // Subscribe to Firebase data on mount - NO AUTOMATIC SAVES
   useEffect(() => {
     setFadeIn(true);
     
     console.log("Initializing Firebase subscriptions...");
     
-    // Subscribe to settings (photo, demo reel, bio)
+    // Subscribe to settings
     const unsubSettings = subscribeToSettings((data) => {
       console.log("Settings received from Firebase:", data);
       if (data) {
-        if (data.photoUrl) setCustomPhotoUrl(data.photoUrl);
-        if (data.demoReelUrl) setCustomDemoReelUrl(data.demoReelUrl);
-        if (data.bio) setCustomBio(data.bio);
+        firebaseLoadedRef.current = true;
+        if (data.photoUrl !== undefined) setCustomPhotoUrl(data.photoUrl);
+        if (data.demoReelUrl !== undefined) setCustomDemoReelUrl(data.demoReelUrl);
+        if (data.bio !== undefined) setCustomBio(data.bio);
       }
     });
     
@@ -3351,54 +3070,59 @@ export default function App() {
     const unsubAnimations = subscribeToAnimations((data) => {
       console.log("Animations received from Firebase:", data);
       if (data && Array.isArray(data)) {
+        firebaseLoadedRef.current = true;
         setAnimations(data);
       }
     });
     
-    // Mark data as loaded after a delay to prevent initial save
-    const timer = setTimeout(() => {
-      console.log("Data loaded flag set to true - saves will now work");
-      setDataLoaded(true);
-    }, 2000);
-    
     return () => {
       unsubSettings();
       unsubAnimations();
-      clearTimeout(timer);
     };
   }, []);
 
-  // Save animations to Firebase when they change
-  useEffect(() => {
-    if (dataLoaded) {
-      console.log("Saving animations to Firebase...");
-      saveAnimations(animations);
-    }
-  }, [animations, dataLoaded]);
+  // === EXPLICIT SAVE FUNCTIONS (only called on user action) ===
+  
+  const saveCurrentSettings = () => {
+    console.log("Explicitly saving settings to Firebase...");
+    saveSettings({
+      photoUrl: customPhotoUrl,
+      demoReelUrl: customDemoReelUrl,
+      bio: customBio,
+    });
+  };
 
-  // Save settings to Firebase when they change
-  useEffect(() => {
-    if (dataLoaded) {
-      console.log("Saving settings to Firebase...");
-      saveSettings({
-        photoUrl: customPhotoUrl,
-        demoReelUrl: customDemoReelUrl,
-        bio: customBio,
-      });
-    }
-  }, [customPhotoUrl, customDemoReelUrl, customBio, dataLoaded]);
+  const saveCurrentAnimations = () => {
+    console.log("Explicitly saving animations to Firebase...");
+    saveAnimations(animations);
+  };
 
-  // Handlers for editing photo and demo reel
+  // Handlers for editing - NOW EXPLICITLY SAVE
   const handleEditPhoto = () => {
     const newUrl = window.prompt("Enter new photo URL:", customPhotoUrl || portfolioData.about.photoUrl);
     if (newUrl !== null && newUrl.trim() !== "") {
       setCustomPhotoUrl(newUrl.trim());
+      // Save after state update
+      setTimeout(() => {
+        saveSettings({
+          photoUrl: newUrl.trim(),
+          demoReelUrl: customDemoReelUrl,
+          bio: customBio,
+        });
+      }, 100);
     }
   };
 
   const handleResetPhoto = () => {
     if (window.confirm("Reset to default photo?")) {
       setCustomPhotoUrl(null);
+      setTimeout(() => {
+        saveSettings({
+          photoUrl: null,
+          demoReelUrl: customDemoReelUrl,
+          bio: customBio,
+        });
+      }, 100);
     }
   };
 
@@ -3406,12 +3130,26 @@ export default function App() {
     const newUrl = window.prompt("Enter new YouTube embed URL:\n(Format: https://www.youtube.com/embed/VIDEO_ID)", customDemoReelUrl || portfolioData.demoReelUrl);
     if (newUrl !== null && newUrl.trim() !== "") {
       setCustomDemoReelUrl(newUrl.trim());
+      setTimeout(() => {
+        saveSettings({
+          photoUrl: customPhotoUrl,
+          demoReelUrl: newUrl.trim(),
+          bio: customBio,
+        });
+      }, 100);
     }
   };
 
   const handleResetDemoReel = () => {
     if (window.confirm("Reset to default demo reel?")) {
       setCustomDemoReelUrl(null);
+      setTimeout(() => {
+        saveSettings({
+          photoUrl: customPhotoUrl,
+          demoReelUrl: null,
+          bio: customBio,
+        });
+      }, 100);
     }
   };
 
@@ -3419,12 +3157,26 @@ export default function App() {
     const newBio = window.prompt("Enter new bio text:", customBio || portfolioData.about.bio);
     if (newBio !== null && newBio.trim() !== "") {
       setCustomBio(newBio.trim());
+      setTimeout(() => {
+        saveSettings({
+          photoUrl: customPhotoUrl,
+          demoReelUrl: customDemoReelUrl,
+          bio: newBio.trim(),
+        });
+      }, 100);
     }
   };
 
   const handleResetBio = () => {
     if (window.confirm("Reset to default bio?")) {
       setCustomBio(null);
+      setTimeout(() => {
+        saveSettings({
+          photoUrl: customPhotoUrl,
+          demoReelUrl: customDemoReelUrl,
+          bio: null,
+        });
+      }, 100);
     }
   };
 
@@ -3453,18 +3205,29 @@ export default function App() {
 
   const handleDeleteClick = (id) => {
     if (window.confirm("Are you sure you want to delete this animation?")) {
-      setAnimations(animations.filter(a => a.id !== id));
+      const newAnimations = animations.filter(a => a.id !== id);
+      setAnimations(newAnimations);
+      // Explicitly save
+      setTimeout(() => {
+        saveAnimations(newAnimations);
+      }, 100);
     }
   };
 
   const handleSaveAnimation = (animation) => {
+    let newAnimations;
     if (editingAnimation) {
-      setAnimations(animations.map(a => a.id === animation.id ? animation : a));
+      newAnimations = animations.map(a => a.id === animation.id ? animation : a);
     } else {
-      setAnimations([animation, ...animations]);
+      newAnimations = [animation, ...animations];
     }
+    setAnimations(newAnimations);
     setShowEditor(false);
     setEditingAnimation(null);
+    // Explicitly save
+    setTimeout(() => {
+      saveAnimations(newAnimations);
+    }, 100);
   };
 
   return (
@@ -3489,7 +3252,6 @@ export default function App() {
       />
       <ScrollIndicator hidden={currentPage === "about"} />
 
-      {/* Admin indicator bar */}
       {isAdmin && (
         <div
           style={{
@@ -3547,7 +3309,6 @@ export default function App() {
 
       <Footer onAdminClick={handleAdminClick} isAdmin={isAdmin} />
 
-      {/* Admin Modals */}
       {showLogin && (
         <AdminLogin onLogin={handleLogin} onClose={() => setShowLogin(false)} />
       )}
