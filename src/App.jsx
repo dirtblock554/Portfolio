@@ -1167,12 +1167,37 @@ function ScrollIndicator({ hidden = false }) {
 function Footer({ onAdminClick, isAdmin }) {
   const [emailCopied, setEmailCopied] = useState(false);
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 768);
+  const [hidden, setHidden] = useState(false);
+  const lastScrollY = useRef(typeof window !== 'undefined' ? window.scrollY : 0);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Hide footer on scroll-down, reveal on scroll-up - mobile only, to keep focus on artwork
+  useEffect(() => {
+    if (!isMobile) {
+      setHidden(false);
+      return;
+    }
+
+    lastScrollY.current = window.scrollY;
+
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      const delta = currentScrollY - lastScrollY.current;
+
+      if (Math.abs(delta) > 5) {
+        setHidden(delta > 0 && currentScrollY > 100);
+        lastScrollY.current = currentScrollY;
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [isMobile]);
 
   const handleEmailClick = (e) => {
     e.preventDefault();
@@ -1202,6 +1227,8 @@ function Footer({ onAdminClick, isAdmin }) {
         alignItems: "center",
         zIndex: 100,
         fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+        transform: isMobile && hidden ? "translateY(100%)" : "translateY(0)",
+        transition: "transform 0.3s ease",
       }}
     >
       <style>
