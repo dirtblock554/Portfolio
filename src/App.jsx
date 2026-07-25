@@ -1184,14 +1184,27 @@ function Footer({ onAdminClick, isAdmin }) {
     }
 
     lastScrollY.current = window.scrollY;
+    let accumulated = 0;
+    const TOGGLE_THRESHOLD = 40;
 
     const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      const delta = currentScrollY - lastScrollY.current;
+      const currentScrollY = Math.max(window.scrollY, 0);
+      const diff = currentScrollY - lastScrollY.current;
+      lastScrollY.current = currentScrollY;
 
-      if (Math.abs(delta) > 5) {
-        setHidden(delta > 0 && currentScrollY > 100);
-        lastScrollY.current = currentScrollY;
+      // Reset the accumulator whenever the scroll direction reverses,
+      // so a brief change of direction doesn't carry over stale momentum.
+      if ((diff > 0 && accumulated < 0) || (diff < 0 && accumulated > 0)) {
+        accumulated = 0;
+      }
+      accumulated += diff;
+
+      if (accumulated > TOGGLE_THRESHOLD && currentScrollY > 150) {
+        setHidden(true);
+        accumulated = 0;
+      } else if (accumulated < -TOGGLE_THRESHOLD || currentScrollY <= 150) {
+        setHidden(false);
+        accumulated = 0;
       }
     };
 
@@ -1210,6 +1223,19 @@ function Footer({ onAdminClick, isAdmin }) {
   };
 
   return (
+    <>
+    {/* Always-on strip covering the home-indicator safe area, independent of the footer's hide/show animation */}
+    <div
+      style={{
+        position: "fixed",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: "env(safe-area-inset-bottom)",
+        backgroundColor: colors.charcoal,
+        zIndex: 99,
+      }}
+    />
     <footer
       style={{
         position: "fixed",
@@ -1352,6 +1378,7 @@ function Footer({ onAdminClick, isAdmin }) {
         </a>
       </div>
     </footer>
+    </>
   );
 }
 
