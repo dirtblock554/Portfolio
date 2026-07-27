@@ -1,6 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
 import { X, Mail, Linkedin, Instagram, Play, Plus, Trash2, Edit, Edit2, Lock, LogOut, Save } from "lucide-react";
-import { subscribeToSettings, subscribeToAnimations, saveSettings, saveAnimations } from "./firebase";
+import {
+  subscribeToSettings,
+  subscribeToAnimations,
+  saveSettings,
+  saveAnimations,
+  signInAdmin,
+  signOutAdmin,
+  subscribeToAdminState,
+} from "./firebase";
 
 // ============================================
 // COLOR PALETTE & THEME
@@ -501,9 +509,6 @@ const portfolioData = {
     photoUrl: "/Self portrait.png",
   },
 };
-
-// Admin password
-const ADMIN_PASSWORD = "quikdraw2024";
 
 // Default animations (used if no saved data)
 const defaultAnimations = [
@@ -1629,7 +1634,14 @@ function AboutMeButton({ currentPage, setCurrentPage }) {
 function AnimationCard({ animation, onClick, lightMode = false, isAdmin = false, onEdit, onDelete }) {
   const [isHovered, setIsHovered] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 768);
   const hoverTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -1765,8 +1777,8 @@ function AnimationCard({ animation, onClick, lightMode = false, isAdmin = false,
           {!showVideo && (
             <div
               style={{
-                width: "60px",
-                height: "60px",
+                width: isMobile ? "40px" : "60px",
+                height: isMobile ? "40px" : "60px",
                 borderRadius: "50%",
                 backgroundColor: `${colors.coral}dd`,
                 display: "flex",
@@ -1774,7 +1786,7 @@ function AnimationCard({ animation, onClick, lightMode = false, isAdmin = false,
                 justifyContent: "center",
               }}
             >
-              <Play size={28} color={colors.cream} fill={colors.cream} style={{ marginLeft: "4px" }} />
+              <Play size={isMobile ? 18 : 28} color={colors.cream} fill={colors.cream} style={{ marginLeft: isMobile ? "2px" : "4px" }} />
             </div>
           )}
         </div>
@@ -1805,15 +1817,19 @@ function AnimationCard({ animation, onClick, lightMode = false, isAdmin = false,
         </div>
       </div>
 
-      <div style={{ marginTop: "12px", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+      <div style={{ marginTop: isMobile ? "8px" : "12px", display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "8px" }}>
         <h3
           style={{
             fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
-            fontSize: "16px",
+            fontSize: isMobile ? "12px" : "16px",
             fontWeight: "bold",
             color: lightMode ? colors.charcoal : colors.cream,
             margin: 0,
-            letterSpacing: "1px",
+            letterSpacing: isMobile ? "0.5px" : "1px",
+            // Long titles would otherwise wrap to three lines in a half-width card
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
           }}
         >
           {animation.title.toUpperCase()}
@@ -1822,7 +1838,8 @@ function AnimationCard({ animation, onClick, lightMode = false, isAdmin = false,
           style={{
             fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
             color: colors.coral,
-            fontSize: "14px",
+            fontSize: isMobile ? "11px" : "14px",
+            flexShrink: 0,
           }}
         >
           {animation.year}
@@ -2019,9 +2036,11 @@ function AnimationModal({ isOpen, onClose, animation }) {
 // ADMIN PANEL
 // ============================================
 
-function AdminLogin({ onLogin, onClose }) {
+function AdminLogin({ onClose }) {
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState(false);
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [buttonHovered, setButtonHovered] = useState(false);
 
@@ -2029,13 +2048,21 @@ function AdminLogin({ onLogin, onClose }) {
     setTimeout(() => setIsVisible(true), 10);
   }, []);
 
-  const handleSubmit = (e) => {
+  // On success the auth listener in App flips admin mode on and unmounts this
+  // dialog, so there's nothing to do here but report failure.
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (password === ADMIN_PASSWORD) {
-      onLogin();
-    } else {
-      setError(true);
-      setTimeout(() => setError(false), 2000);
+    if (submitting) return;
+
+    setSubmitting(true);
+    setError("");
+
+    const result = await signInAdmin(email.trim(), password);
+
+    if (!result.ok) {
+      setError(result.message);
+      setPassword("");
+      setSubmitting(false);
     }
   };
 
@@ -2095,11 +2122,34 @@ function AdminLogin({ onLogin, onClose }) {
 
         <form onSubmit={handleSubmit}>
           <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Email"
+            autoComplete="username"
+            autoFocus
+            style={{
+              width: "100%",
+              padding: "14px 16px",
+              marginBottom: "12px",
+              border: `2px solid ${error ? "#ff4444" : colors.coral}`,
+              borderRadius: "8px",
+              fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+              fontSize: "16px",
+              backgroundColor: colors.cream,
+              color: colors.charcoal,
+              outline: "none",
+              boxSizing: "border-box",
+              transition: "border-color 0.2s ease",
+            }}
+          />
+
+          <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Enter password"
-            autoFocus
+            placeholder="Password"
+            autoComplete="current-password"
             style={{
               width: "100%",
               padding: "14px 16px",
@@ -2118,24 +2168,26 @@ function AdminLogin({ onLogin, onClose }) {
 
           <button
             type="submit"
+            disabled={submitting}
             onMouseEnter={() => setButtonHovered(true)}
             onMouseLeave={() => setButtonHovered(false)}
             style={{
               width: "100%",
               padding: "14px",
-              backgroundColor: buttonHovered ? colors.cream : colors.coral,
-              color: buttonHovered ? colors.coral : colors.charcoal,
+              backgroundColor: buttonHovered && !submitting ? colors.cream : colors.coral,
+              color: buttonHovered && !submitting ? colors.coral : colors.charcoal,
               border: "none",
               borderRadius: "8px",
               fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
               fontWeight: "bold",
               fontSize: "16px",
               letterSpacing: "2px",
-              cursor: "pointer",
+              cursor: submitting ? "default" : "pointer",
+              opacity: submitting ? 0.6 : 1,
               transition: "all 0.3s ease",
             }}
           >
-            LOGIN
+            {submitting ? "SIGNING IN…" : "LOGIN"}
           </button>
         </form>
 
@@ -2166,7 +2218,7 @@ function AdminLogin({ onLogin, onClose }) {
             fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
             fontSize: "14px",
           }}>
-            Incorrect password
+            {error}
           </p>
         )}
       </div>
@@ -2691,25 +2743,27 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) 
 // Portfolio Grid Section
 function PortfolioSection({ animations, onCardClick, isAdmin, onAddClick, onEditClick, onDeleteClick }) {
   const [columnCount, setColumnCount] = useState(3);
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 768);
 
   useEffect(() => {
-    const updateColumns = () => {
-      if (window.innerWidth <= 500) {
-        setColumnCount(1);
-      } else if (window.innerWidth <= 900) {
-        setColumnCount(2);
-      } else {
-        setColumnCount(3);
-      }
+    const updateLayout = () => {
+      const width = window.innerWidth;
+      // Phones get two columns rather than one. At a single column a vertical
+      // card runs taller than the screen, so only one piece is ever visible;
+      // two lets the work be scanned at a glance and tapped to enlarge.
+      setColumnCount(width <= 900 ? 2 : 3);
+      setIsMobile(width <= 768);
     };
 
-    updateColumns();
-    window.addEventListener('resize', updateColumns);
-    return () => window.removeEventListener('resize', updateColumns);
+    updateLayout();
+    window.addEventListener('resize', updateLayout);
+    return () => window.removeEventListener('resize', updateLayout);
   }, []);
 
+  const cardGap = isMobile ? "12px" : "24px";
+
   return (
-    <section style={{ padding: "80px 24px 140px", backgroundColor: colors.cream, position: "relative", zIndex: 1 }}>
+    <section style={{ padding: isMobile ? "48px 14px 100px" : "80px 24px 140px", backgroundColor: colors.cream, position: "relative", zIndex: 1 }}>
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "4px", backgroundColor: colors.coral }} />
 
       <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
@@ -2731,18 +2785,18 @@ function PortfolioSection({ animations, onCardClick, isAdmin, onAddClick, onEdit
           ANIMATION WORK
         </h2>
 
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: "60px" }}>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: isMobile ? "32px" : "60px" }}>
           <GeometricBorder width={150} color={colors.charcoal} />
         </div>
 
-        <div style={{ columnCount: columnCount, columnGap: "24px" }}>
+        <div style={{ columnCount: columnCount, columnGap: cardGap }}>
           {isAdmin && (
-            <div style={{ breakInside: "avoid", marginBottom: "24px" }}>
+            <div style={{ breakInside: "avoid", marginBottom: cardGap }}>
               <AddAnimationButton onClick={onAddClick} />
             </div>
           )}
           {animations.map((animation) => (
-            <div key={animation.id} style={{ breakInside: "avoid", marginBottom: "24px" }}>
+            <div key={animation.id} style={{ breakInside: "avoid", marginBottom: cardGap }}>
               <AnimationCard
                 animation={animation}
                 onClick={() => onCardClick(animation)}
@@ -3073,6 +3127,18 @@ export default function App() {
   // Track if data has been loaded from Firebase
   const firebaseLoadedRef = useRef(false);
 
+  // Admin mode follows Firebase Auth, not local state — closing the login
+  // dialog or reloading can't grant it, and the database rules enforce the
+  // same check server-side regardless of what the UI shows.
+  useEffect(() => {
+    const unsubAdmin = subscribeToAdminState((isAdminUser) => {
+      setIsAdmin(isAdminUser);
+      if (isAdminUser) setShowLogin(false);
+    });
+
+    return () => unsubAdmin();
+  }, []);
+
   // Track hero eye and name visibility for nav toggle
   useEffect(() => {
     const handleScroll = () => {
@@ -3139,10 +3205,24 @@ export default function App() {
   }, []);
 
   // === EXPLICIT SAVE FUNCTIONS (only called on user action) ===
-  
+
+  // The database rejects writes from anyone who isn't a signed-in admin, so a
+  // failed save has to surface — otherwise the edit looks applied until reload.
+  const pushSettings = async (settings) => {
+    const result = await saveSettings(settings);
+    if (!result.ok) window.alert(`Couldn't save settings.\n\n${result.message}`);
+    return result;
+  };
+
+  const pushAnimations = async (nextAnimations) => {
+    const result = await saveAnimations(nextAnimations);
+    if (!result.ok) window.alert(`Couldn't save animations.\n\n${result.message}`);
+    return result;
+  };
+
   const saveCurrentSettings = () => {
     console.log("Explicitly saving settings to Firebase...");
-    saveSettings({
+    pushSettings({
       photoUrl: customPhotoUrl,
       demoReelUrl: customDemoReelUrl,
       bio: customBio,
@@ -3151,7 +3231,7 @@ export default function App() {
 
   const saveCurrentAnimations = () => {
     console.log("Explicitly saving animations to Firebase...");
-    saveAnimations(animations);
+    pushAnimations(animations);
   };
 
   // Handlers for editing - NOW EXPLICITLY SAVE
@@ -3161,7 +3241,7 @@ export default function App() {
       setCustomPhotoUrl(newUrl.trim());
       // Save after state update
       setTimeout(() => {
-        saveSettings({
+        pushSettings({
           photoUrl: newUrl.trim(),
           demoReelUrl: customDemoReelUrl,
           bio: customBio,
@@ -3174,7 +3254,7 @@ export default function App() {
     if (window.confirm("Reset to default photo?")) {
       setCustomPhotoUrl(null);
       setTimeout(() => {
-        saveSettings({
+        pushSettings({
           photoUrl: null,
           demoReelUrl: customDemoReelUrl,
           bio: customBio,
@@ -3188,7 +3268,7 @@ export default function App() {
     if (newUrl !== null && newUrl.trim() !== "") {
       setCustomDemoReelUrl(newUrl.trim());
       setTimeout(() => {
-        saveSettings({
+        pushSettings({
           photoUrl: customPhotoUrl,
           demoReelUrl: newUrl.trim(),
           bio: customBio,
@@ -3201,7 +3281,7 @@ export default function App() {
     if (window.confirm("Reset to default demo reel?")) {
       setCustomDemoReelUrl(null);
       setTimeout(() => {
-        saveSettings({
+        pushSettings({
           photoUrl: customPhotoUrl,
           demoReelUrl: null,
           bio: customBio,
@@ -3215,7 +3295,7 @@ export default function App() {
     if (newBio !== null && newBio.trim() !== "") {
       setCustomBio(newBio.trim());
       setTimeout(() => {
-        saveSettings({
+        pushSettings({
           photoUrl: customPhotoUrl,
           demoReelUrl: customDemoReelUrl,
           bio: newBio.trim(),
@@ -3228,7 +3308,7 @@ export default function App() {
     if (window.confirm("Reset to default bio?")) {
       setCustomBio(null);
       setTimeout(() => {
-        saveSettings({
+        pushSettings({
           photoUrl: customPhotoUrl,
           demoReelUrl: customDemoReelUrl,
           bio: null,
@@ -3239,15 +3319,10 @@ export default function App() {
 
   const handleAdminClick = () => {
     if (isAdmin) {
-      setIsAdmin(false);
+      signOutAdmin();
     } else {
       setShowLogin(true);
     }
-  };
-
-  const handleLogin = () => {
-    setIsAdmin(true);
-    setShowLogin(false);
   };
 
   const handleAddClick = () => {
@@ -3266,7 +3341,7 @@ export default function App() {
       setAnimations(newAnimations);
       // Explicitly save
       setTimeout(() => {
-        saveAnimations(newAnimations);
+        pushAnimations(newAnimations);
       }, 100);
     }
   };
@@ -3283,7 +3358,7 @@ export default function App() {
     setEditingAnimation(null);
     // Explicitly save
     setTimeout(() => {
-      saveAnimations(newAnimations);
+      pushAnimations(newAnimations);
     }, 100);
   };
 
@@ -3367,7 +3442,7 @@ export default function App() {
       <Footer onAdminClick={handleAdminClick} isAdmin={isAdmin} />
 
       {showLogin && (
-        <AdminLogin onLogin={handleLogin} onClose={() => setShowLogin(false)} />
+        <AdminLogin onClose={() => setShowLogin(false)} />
       )}
       {showEditor && (
         <AnimationEditor
