@@ -1634,7 +1634,14 @@ function AboutMeButton({ currentPage, setCurrentPage }) {
 function AnimationCard({ animation, onClick, lightMode = false, isAdmin = false, onEdit, onDelete }) {
   const [isHovered, setIsHovered] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 768);
   const hoverTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -1770,8 +1777,8 @@ function AnimationCard({ animation, onClick, lightMode = false, isAdmin = false,
           {!showVideo && (
             <div
               style={{
-                width: "60px",
-                height: "60px",
+                width: isMobile ? "40px" : "60px",
+                height: isMobile ? "40px" : "60px",
                 borderRadius: "50%",
                 backgroundColor: `${colors.coral}dd`,
                 display: "flex",
@@ -1779,7 +1786,7 @@ function AnimationCard({ animation, onClick, lightMode = false, isAdmin = false,
                 justifyContent: "center",
               }}
             >
-              <Play size={28} color={colors.cream} fill={colors.cream} style={{ marginLeft: "4px" }} />
+              <Play size={isMobile ? 18 : 28} color={colors.cream} fill={colors.cream} style={{ marginLeft: isMobile ? "2px" : "4px" }} />
             </div>
           )}
         </div>
@@ -1810,15 +1817,19 @@ function AnimationCard({ animation, onClick, lightMode = false, isAdmin = false,
         </div>
       </div>
 
-      <div style={{ marginTop: "12px", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+      <div style={{ marginTop: isMobile ? "8px" : "12px", display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "8px" }}>
         <h3
           style={{
             fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
-            fontSize: "16px",
+            fontSize: isMobile ? "12px" : "16px",
             fontWeight: "bold",
             color: lightMode ? colors.charcoal : colors.cream,
             margin: 0,
-            letterSpacing: "1px",
+            letterSpacing: isMobile ? "0.5px" : "1px",
+            // Long titles would otherwise wrap to three lines in a half-width card
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
           }}
         >
           {animation.title.toUpperCase()}
@@ -1827,7 +1838,8 @@ function AnimationCard({ animation, onClick, lightMode = false, isAdmin = false,
           style={{
             fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
             color: colors.coral,
-            fontSize: "14px",
+            fontSize: isMobile ? "11px" : "14px",
+            flexShrink: 0,
           }}
         >
           {animation.year}
@@ -2731,25 +2743,27 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) 
 // Portfolio Grid Section
 function PortfolioSection({ animations, onCardClick, isAdmin, onAddClick, onEditClick, onDeleteClick }) {
   const [columnCount, setColumnCount] = useState(3);
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 768);
 
   useEffect(() => {
-    const updateColumns = () => {
-      if (window.innerWidth <= 500) {
-        setColumnCount(1);
-      } else if (window.innerWidth <= 900) {
-        setColumnCount(2);
-      } else {
-        setColumnCount(3);
-      }
+    const updateLayout = () => {
+      const width = window.innerWidth;
+      // Phones get two columns rather than one. At a single column a vertical
+      // card runs taller than the screen, so only one piece is ever visible;
+      // two lets the work be scanned at a glance and tapped to enlarge.
+      setColumnCount(width <= 900 ? 2 : 3);
+      setIsMobile(width <= 768);
     };
 
-    updateColumns();
-    window.addEventListener('resize', updateColumns);
-    return () => window.removeEventListener('resize', updateColumns);
+    updateLayout();
+    window.addEventListener('resize', updateLayout);
+    return () => window.removeEventListener('resize', updateLayout);
   }, []);
 
+  const cardGap = isMobile ? "12px" : "24px";
+
   return (
-    <section style={{ padding: "80px 24px 140px", backgroundColor: colors.cream, position: "relative", zIndex: 1 }}>
+    <section style={{ padding: isMobile ? "48px 14px 100px" : "80px 24px 140px", backgroundColor: colors.cream, position: "relative", zIndex: 1 }}>
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "4px", backgroundColor: colors.coral }} />
 
       <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
@@ -2771,18 +2785,18 @@ function PortfolioSection({ animations, onCardClick, isAdmin, onAddClick, onEdit
           ANIMATION WORK
         </h2>
 
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: "60px" }}>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: isMobile ? "32px" : "60px" }}>
           <GeometricBorder width={150} color={colors.charcoal} />
         </div>
 
-        <div style={{ columnCount: columnCount, columnGap: "24px" }}>
+        <div style={{ columnCount: columnCount, columnGap: cardGap }}>
           {isAdmin && (
-            <div style={{ breakInside: "avoid", marginBottom: "24px" }}>
+            <div style={{ breakInside: "avoid", marginBottom: cardGap }}>
               <AddAnimationButton onClick={onAddClick} />
             </div>
           )}
           {animations.map((animation) => (
-            <div key={animation.id} style={{ breakInside: "avoid", marginBottom: "24px" }}>
+            <div key={animation.id} style={{ breakInside: "avoid", marginBottom: cardGap }}>
               <AnimationCard
                 animation={animation}
                 onClick={() => onCardClick(animation)}
