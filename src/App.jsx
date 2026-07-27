@@ -1,6 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
 import { X, Mail, Linkedin, Instagram, Play, Plus, Trash2, Edit, Edit2, Lock, LogOut, Save } from "lucide-react";
-import { subscribeToSettings, subscribeToAnimations, saveSettings, saveAnimations } from "./firebase";
+import {
+  subscribeToSettings,
+  subscribeToAnimations,
+  saveSettings,
+  saveAnimations,
+  signInAdmin,
+  signOutAdmin,
+  subscribeToAdminState,
+} from "./firebase";
 
 // ============================================
 // COLOR PALETTE & THEME
@@ -501,9 +509,6 @@ const portfolioData = {
     photoUrl: "/Self portrait.png",
   },
 };
-
-// Admin password
-const ADMIN_PASSWORD = "quikdraw2024";
 
 // Default animations (used if no saved data)
 const defaultAnimations = [
@@ -2019,9 +2024,11 @@ function AnimationModal({ isOpen, onClose, animation }) {
 // ADMIN PANEL
 // ============================================
 
-function AdminLogin({ onLogin, onClose }) {
+function AdminLogin({ onClose }) {
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState(false);
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [buttonHovered, setButtonHovered] = useState(false);
 
@@ -2029,13 +2036,21 @@ function AdminLogin({ onLogin, onClose }) {
     setTimeout(() => setIsVisible(true), 10);
   }, []);
 
-  const handleSubmit = (e) => {
+  // On success the auth listener in App flips admin mode on and unmounts this
+  // dialog, so there's nothing to do here but report failure.
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (password === ADMIN_PASSWORD) {
-      onLogin();
-    } else {
-      setError(true);
-      setTimeout(() => setError(false), 2000);
+    if (submitting) return;
+
+    setSubmitting(true);
+    setError("");
+
+    const result = await signInAdmin(email.trim(), password);
+
+    if (!result.ok) {
+      setError(result.message);
+      setPassword("");
+      setSubmitting(false);
     }
   };
 
@@ -2095,11 +2110,34 @@ function AdminLogin({ onLogin, onClose }) {
 
         <form onSubmit={handleSubmit}>
           <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Email"
+            autoComplete="username"
+            autoFocus
+            style={{
+              width: "100%",
+              padding: "14px 16px",
+              marginBottom: "12px",
+              border: `2px solid ${error ? "#ff4444" : colors.coral}`,
+              borderRadius: "8px",
+              fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+              fontSize: "16px",
+              backgroundColor: colors.cream,
+              color: colors.charcoal,
+              outline: "none",
+              boxSizing: "border-box",
+              transition: "border-color 0.2s ease",
+            }}
+          />
+
+          <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Enter password"
-            autoFocus
+            placeholder="Password"
+            autoComplete="current-password"
             style={{
               width: "100%",
               padding: "14px 16px",
@@ -2118,24 +2156,26 @@ function AdminLogin({ onLogin, onClose }) {
 
           <button
             type="submit"
+            disabled={submitting}
             onMouseEnter={() => setButtonHovered(true)}
             onMouseLeave={() => setButtonHovered(false)}
             style={{
               width: "100%",
               padding: "14px",
-              backgroundColor: buttonHovered ? colors.cream : colors.coral,
-              color: buttonHovered ? colors.coral : colors.charcoal,
+              backgroundColor: buttonHovered && !submitting ? colors.cream : colors.coral,
+              color: buttonHovered && !submitting ? colors.coral : colors.charcoal,
               border: "none",
               borderRadius: "8px",
               fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
               fontWeight: "bold",
               fontSize: "16px",
               letterSpacing: "2px",
-              cursor: "pointer",
+              cursor: submitting ? "default" : "pointer",
+              opacity: submitting ? 0.6 : 1,
               transition: "all 0.3s ease",
             }}
           >
-            LOGIN
+            {submitting ? "SIGNING IN…" : "LOGIN"}
           </button>
         </form>
 
@@ -2166,7 +2206,7 @@ function AdminLogin({ onLogin, onClose }) {
             fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
             fontSize: "14px",
           }}>
-            Incorrect password
+            {error}
           </p>
         )}
       </div>
@@ -3073,6 +3113,18 @@ export default function App() {
   // Track if data has been loaded from Firebase
   const firebaseLoadedRef = useRef(false);
 
+  // Admin mode follows Firebase Auth, not local state — closing the login
+  // dialog or reloading can't grant it, and the database rules enforce the
+  // same check server-side regardless of what the UI shows.
+  useEffect(() => {
+    const unsubAdmin = subscribeToAdminState((isAdminUser) => {
+      setIsAdmin(isAdminUser);
+      if (isAdminUser) setShowLogin(false);
+    });
+
+    return () => unsubAdmin();
+  }, []);
+
   // Track hero eye and name visibility for nav toggle
   useEffect(() => {
     const handleScroll = () => {
@@ -3139,10 +3191,24 @@ export default function App() {
   }, []);
 
   // === EXPLICIT SAVE FUNCTIONS (only called on user action) ===
-  
+
+  // The database rejects writes from anyone who isn't a signed-in admin, so a
+  // failed save has to surface — otherwise the edit looks applied until reload.
+  const pushSettings = async (settings) => {
+    const result = await saveSettings(settings);
+    if (!result.ok) window.alert(`Couldn't save settings.\n\n${result.message}`);
+    return result;
+  };
+
+  const pushAnimations = async (nextAnimations) => {
+    const result = await saveAnimations(nextAnimations);
+    if (!result.ok) window.alert(`Couldn't save animations.\n\n${result.message}`);
+    return result;
+  };
+
   const saveCurrentSettings = () => {
     console.log("Explicitly saving settings to Firebase...");
-    saveSettings({
+    pushSettings({
       photoUrl: customPhotoUrl,
       demoReelUrl: customDemoReelUrl,
       bio: customBio,
@@ -3151,7 +3217,7 @@ export default function App() {
 
   const saveCurrentAnimations = () => {
     console.log("Explicitly saving animations to Firebase...");
-    saveAnimations(animations);
+    pushAnimations(animations);
   };
 
   // Handlers for editing - NOW EXPLICITLY SAVE
@@ -3161,7 +3227,7 @@ export default function App() {
       setCustomPhotoUrl(newUrl.trim());
       // Save after state update
       setTimeout(() => {
-        saveSettings({
+        pushSettings({
           photoUrl: newUrl.trim(),
           demoReelUrl: customDemoReelUrl,
           bio: customBio,
@@ -3174,7 +3240,7 @@ export default function App() {
     if (window.confirm("Reset to default photo?")) {
       setCustomPhotoUrl(null);
       setTimeout(() => {
-        saveSettings({
+        pushSettings({
           photoUrl: null,
           demoReelUrl: customDemoReelUrl,
           bio: customBio,
@@ -3188,7 +3254,7 @@ export default function App() {
     if (newUrl !== null && newUrl.trim() !== "") {
       setCustomDemoReelUrl(newUrl.trim());
       setTimeout(() => {
-        saveSettings({
+        pushSettings({
           photoUrl: customPhotoUrl,
           demoReelUrl: newUrl.trim(),
           bio: customBio,
@@ -3201,7 +3267,7 @@ export default function App() {
     if (window.confirm("Reset to default demo reel?")) {
       setCustomDemoReelUrl(null);
       setTimeout(() => {
-        saveSettings({
+        pushSettings({
           photoUrl: customPhotoUrl,
           demoReelUrl: null,
           bio: customBio,
@@ -3215,7 +3281,7 @@ export default function App() {
     if (newBio !== null && newBio.trim() !== "") {
       setCustomBio(newBio.trim());
       setTimeout(() => {
-        saveSettings({
+        pushSettings({
           photoUrl: customPhotoUrl,
           demoReelUrl: customDemoReelUrl,
           bio: newBio.trim(),
@@ -3228,7 +3294,7 @@ export default function App() {
     if (window.confirm("Reset to default bio?")) {
       setCustomBio(null);
       setTimeout(() => {
-        saveSettings({
+        pushSettings({
           photoUrl: customPhotoUrl,
           demoReelUrl: customDemoReelUrl,
           bio: null,
@@ -3239,15 +3305,10 @@ export default function App() {
 
   const handleAdminClick = () => {
     if (isAdmin) {
-      setIsAdmin(false);
+      signOutAdmin();
     } else {
       setShowLogin(true);
     }
-  };
-
-  const handleLogin = () => {
-    setIsAdmin(true);
-    setShowLogin(false);
   };
 
   const handleAddClick = () => {
@@ -3266,7 +3327,7 @@ export default function App() {
       setAnimations(newAnimations);
       // Explicitly save
       setTimeout(() => {
-        saveAnimations(newAnimations);
+        pushAnimations(newAnimations);
       }, 100);
     }
   };
@@ -3283,7 +3344,7 @@ export default function App() {
     setEditingAnimation(null);
     // Explicitly save
     setTimeout(() => {
-      saveAnimations(newAnimations);
+      pushAnimations(newAnimations);
     }, 100);
   };
 
@@ -3367,7 +3428,7 @@ export default function App() {
       <Footer onAdminClick={handleAdminClick} isAdmin={isAdmin} />
 
       {showLogin && (
-        <AdminLogin onLogin={handleLogin} onClose={() => setShowLogin(false)} />
+        <AdminLogin onClose={() => setShowLogin(false)} />
       )}
       {showEditor && (
         <AnimationEditor
