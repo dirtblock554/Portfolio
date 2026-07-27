@@ -795,6 +795,20 @@ function EyeLogo({ size = 48, color = colors.coral, secondaryColor = colors.crea
   );
 }
 
+// Play control drawn as the site's eye motif: a coral eye with a cream iris,
+// and the play triangle standing in for the pupil.
+function PlayEye({ size = 60 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 60 60" fill="none" style={{ display: "block" }}>
+      <circle cx="30" cy="30" r="29" fill={colors.coral} />
+      <circle cx="30" cy="30" r="23" stroke={colors.cream} strokeWidth="1.5" fill="none" opacity="0.85" />
+      <circle cx="30" cy="30" r="17.5" fill={colors.cream} />
+      <polygon points="26,22 26,38 39.5,30" fill={colors.coral} />
+      <circle cx="41" cy="19" r="2.5" fill={colors.cream} opacity="0.5" />
+    </svg>
+  );
+}
+
 function EyeLogoLarge({ size = 200 }) {
   return (
   <svg width={size} height={size * 0.5} viewBox="0 0 200 100" fill="none">
@@ -1769,24 +1783,17 @@ function AnimationCard({ animation, onClick, lightMode = false, isAdmin = false,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: showVideo ? "transparent" : `${colors.charcoal}44`,
-            opacity: isHovered && !showVideo ? 1 : (showVideo ? 0 : 0.8),
+            // Phones have no hover, so the desktop scrim sat over every
+            // thumbnail permanently and dulled the artwork. Drop it there and
+            // let the eye carry its own contrast with a soft shadow.
+            backgroundColor: showVideo || isMobile ? "transparent" : `${colors.charcoal}44`,
+            opacity: showVideo ? 0 : (isMobile || isHovered ? 1 : 0.8),
             transition: "opacity 0.3s ease",
           }}
         >
           {!showVideo && (
-            <div
-              style={{
-                width: isMobile ? "40px" : "60px",
-                height: isMobile ? "40px" : "60px",
-                borderRadius: "50%",
-                backgroundColor: `${colors.coral}dd`,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Play size={isMobile ? 18 : 28} color={colors.cream} fill={colors.cream} style={{ marginLeft: isMobile ? "2px" : "4px" }} />
+            <div style={{ filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.45))", display: "flex" }}>
+              <PlayEye size={isMobile ? 44 : 64} />
             </div>
           )}
         </div>
