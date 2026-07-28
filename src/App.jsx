@@ -3317,6 +3317,23 @@ function PortfolioSection({
     return () => observer.disconnect();
   }, [activeIndex]);
 
+  // iOS Safari cancels the pointer stream the moment it decides a touch might
+  // be a scroll, which kills the swipe mid-gesture. Once a drag has been
+  // recognised as horizontal, block the native touch behaviour so the pointer
+  // events keep flowing. React registers touch listeners as passive, so this
+  // has to be a native non-passive listener.
+  useEffect(() => {
+    const node = sliderRef.current;
+    if (!node) return;
+
+    const onTouchMove = (e) => {
+      if (dragState.current.dragging) e.preventDefault();
+    };
+
+    node.addEventListener("touchmove", onTouchMove, { passive: false });
+    return () => node.removeEventListener("touchmove", onTouchMove);
+  }, []);
+
   // Drag/swipe between panels. The gesture only claims the pointer once it is
   // clearly horizontal, so vertical scrolling over the panels still works, and
   // a real drag suppresses the click that would otherwise open a card.
@@ -3381,20 +3398,15 @@ function PortfolioSection({
   // at the edges as clickable hints, anything further is parked offscreen.
   const titleStyleFor = (index) => {
     const rel = index - activeIndex;
-    // On phones the centre title nearly fills the width, so the side titles
-    // hug the screen edges at a smaller scale instead of overlapping it.
-    const positions = isMobile
-      ? { "-1": "3%", "0": "50%", "1": "97%" }
-      : { "-1": "12%", "0": "50%", "1": "88%" };
+    const positions = { "-1": "12%", "0": "50%", "1": "88%" };
     const left = positions[rel] ?? (rel < 0 ? "-40%" : "140%");
     const isActive = rel === 0;
-    const sideScale = isMobile ? 0.45 : 0.6;
 
     return {
       position: "absolute",
       top: "50%",
       left,
-      transform: `translate(-50%, -50%) scale(${isActive ? 1 : sideScale})`,
+      transform: `translate(-50%, -50%) scale(${isActive ? 1 : 0.6})`,
       opacity: Math.abs(rel) > 1 ? 0 : (isActive ? 1 : 0.4),
       pointerEvents: isActive || Math.abs(rel) > 1 ? "none" : "auto",
       transition: "left 0.45s ease, transform 0.45s ease, opacity 0.45s ease",
@@ -3411,6 +3423,34 @@ function PortfolioSection({
     };
   };
 
+  const chevronButtonStyle = (side) => ({
+    position: "absolute",
+    top: "50%",
+    [side]: 0,
+    transform: "translateY(-50%)",
+    background: "none",
+    border: "none",
+    padding: "10px 6px",
+    cursor: "pointer",
+    WebkitTapHighlightColor: "transparent",
+  });
+
+  const Chevron = ({ flipped }) => (
+    <svg
+      width="26"
+      height="26"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={colors.coral}
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ transform: flipped ? "scaleX(-1)" : "none", display: "block" }}
+    >
+      <polyline points="9 6 15 12 9 18" />
+    </svg>
+  );
+
   return (
     <section style={{ padding: isMobile ? "48px 14px 100px" : "80px 24px 140px", backgroundColor: colors.cream, position: "relative", zIndex: 1, overflow: "hidden" }}>
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "4px", backgroundColor: colors.coral }} />
@@ -3421,16 +3461,58 @@ function PortfolioSection({
         </div>
 
         <div style={{ position: "relative", height: "56px", marginBottom: "20px" }}>
-          {SHOWCASE_PANELS.map((panel, index) => (
-            <button
-              key={panel.key}
-              onClick={() => setActiveIndex(index)}
-              style={titleStyleFor(index)}
-              aria-label={`Show ${panel.title.toLowerCase()}`}
-            >
-              {panel.title}
-            </button>
-          ))}
+          {isMobile ? (
+            // Phones don't have room for peeking side titles without them
+            // colliding with the centre one, so they get edge chevrons instead.
+            <>
+              <span
+                key={SHOWCASE_PANELS[activeIndex].key}
+                style={{
+                  position: "absolute",
+                  top: "50%",
+                  left: "50%",
+                  transform: "translate(-50%, -50%)",
+                  whiteSpace: "nowrap",
+                  fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+                  fontSize: "clamp(19px, 5vw, 32px)",
+                  fontWeight: "bold",
+                  color: colors.charcoal,
+                  letterSpacing: "4px",
+                }}
+              >
+                {SHOWCASE_PANELS[activeIndex].title}
+              </span>
+              {activeIndex > 0 && (
+                <button
+                  onClick={() => setActiveIndex(activeIndex - 1)}
+                  style={chevronButtonStyle("left")}
+                  aria-label={`Show ${SHOWCASE_PANELS[activeIndex - 1].title.toLowerCase()}`}
+                >
+                  <Chevron flipped />
+                </button>
+              )}
+              {activeIndex < SHOWCASE_PANELS.length - 1 && (
+                <button
+                  onClick={() => setActiveIndex(activeIndex + 1)}
+                  style={chevronButtonStyle("right")}
+                  aria-label={`Show ${SHOWCASE_PANELS[activeIndex + 1].title.toLowerCase()}`}
+                >
+                  <Chevron />
+                </button>
+              )}
+            </>
+          ) : (
+            SHOWCASE_PANELS.map((panel, index) => (
+              <button
+                key={panel.key}
+                onClick={() => setActiveIndex(index)}
+                style={titleStyleFor(index)}
+                aria-label={`Show ${panel.title.toLowerCase()}`}
+              >
+                {panel.title}
+              </button>
+            ))
+          )}
         </div>
 
         <div style={{ display: "flex", justifyContent: "center", marginBottom: isMobile ? "32px" : "60px" }}>
