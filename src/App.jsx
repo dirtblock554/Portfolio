@@ -2456,7 +2456,6 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) 
   // fold, so it fades in on first sight regardless of device.
   const [showArrow, setShowArrow] = useState(false);
   const [reelVisible, setReelVisible] = useState(false);
-  const arrowDismissed = useRef(false);
   const reelRef = useRef(null);
 
   useEffect(() => {
@@ -2465,26 +2464,38 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) 
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Fade the cue in shortly after load, so it reads as an invitation rather
-  // than part of the title.
+  // The cue fades in shortly after load, hides once the visitor scrolls, and
+  // re-arms if they return to the top and linger — a gentle reminder rather
+  // than a one-shot invitation.
   useEffect(() => {
-    if (arrowDismissed.current) return;
-    const timer = setTimeout(() => {
-      if (!arrowDismissed.current) setShowArrow(true);
-    }, 700);
-    return () => clearTimeout(timer);
-  }, []);
+    let reappearTimer = null;
+    const atTop = () => window.scrollY <= 24;
 
-  // Once the visitor scrolls, the cue has done its job and doesn't come back.
-  useEffect(() => {
+    const scheduleReappear = (delay) => {
+      clearTimeout(reappearTimer);
+      reappearTimer = setTimeout(() => {
+        if (atTop()) setShowArrow(true);
+      }, delay);
+    };
+
     const handleScroll = () => {
-      if (window.scrollY > 24 && !arrowDismissed.current) {
-        arrowDismissed.current = true;
+      if (atTop()) {
+        // Back at the top: linger for a bit and the cue returns.
+        scheduleReappear(10000);
+      } else {
+        clearTimeout(reappearTimer);
         setShowArrow(false);
       }
     };
+
+    // Initial appearance reads as an invitation rather than part of the title.
+    scheduleReappear(700);
+
     window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    return () => {
+      clearTimeout(reappearTimer);
+      window.removeEventListener('scroll', handleScroll);
+    };
   }, []);
 
   // Reveal the reel the first time it comes into view, then stop watching.
@@ -2507,7 +2518,6 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) 
   }, []);
 
   const handleArrowClick = () => {
-    arrowDismissed.current = true;
     setShowArrow(false);
     reelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
