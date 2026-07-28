@@ -5,6 +5,10 @@ import {
   subscribeToAnimations,
   saveSettings,
   saveAnimations,
+  subscribeToAchievements,
+  subscribeToProcessEntries,
+  saveAchievements,
+  saveProcessEntries,
   signInAdmin,
   signOutAdmin,
   subscribeToAdminState,
@@ -2447,6 +2451,385 @@ function AddAnimationButton({ onClick }) {
   );
 }
 
+// ============================================
+// SIDE PANELS (Behind the Scenes / Achievements)
+// ============================================
+
+const ACHIEVEMENT_CATEGORIES = ["Award", "Achievement", "Experience", "Commission"];
+
+// Article-style stacked box used by both side panels
+function SideEntryCard({ entry, isAdmin, onEdit, onDelete }) {
+  const embedUrl = entry.youtubeUrl ? getYouTubeEmbedUrl(entry.youtubeUrl) : null;
+
+  return (
+    <div
+      style={{
+        position: "relative",
+        border: `2px solid ${colors.charcoal}`,
+        backgroundColor: colors.cream,
+        padding: "24px 28px",
+        textAlign: "left",
+        width: "100%",
+        maxWidth: "760px",
+        margin: "0 auto",
+        boxSizing: "border-box",
+      }}
+    >
+      <div style={{ position: "absolute", top: "-2px", left: "-2px", width: "18px", height: "18px", borderTop: `3px solid ${colors.coral}`, borderLeft: `3px solid ${colors.coral}` }} />
+      <div style={{ position: "absolute", top: "-2px", right: "-2px", width: "18px", height: "18px", borderTop: `3px solid ${colors.coral}`, borderRight: `3px solid ${colors.coral}` }} />
+      <div style={{ position: "absolute", bottom: "-2px", left: "-2px", width: "18px", height: "18px", borderBottom: `3px solid ${colors.coral}`, borderLeft: `3px solid ${colors.coral}` }} />
+      <div style={{ position: "absolute", bottom: "-2px", right: "-2px", width: "18px", height: "18px", borderBottom: `3px solid ${colors.coral}`, borderRight: `3px solid ${colors.coral}` }} />
+
+      {isAdmin && (
+        <div style={{ position: "absolute", top: "8px", right: "8px", display: "flex", gap: "8px", zIndex: 5 }}>
+          <button
+            onClick={() => onEdit(entry)}
+            style={{ backgroundColor: colors.coral, border: "none", padding: "8px", cursor: "pointer" }}
+          >
+            <Edit size={14} color={colors.cream} />
+          </button>
+          <button
+            onClick={() => onDelete(entry.id)}
+            style={{ backgroundColor: colors.charcoal, border: `1px solid ${colors.coral}`, padding: "8px", cursor: "pointer" }}
+          >
+            <Trash2 size={14} color={colors.coral} />
+          </button>
+        </div>
+      )}
+
+      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "10px", flexWrap: "wrap" }}>
+        {entry.category && (
+          <span
+            style={{
+              backgroundColor: colors.coral,
+              color: colors.charcoal,
+              fontSize: "11px",
+              fontWeight: "bold",
+              letterSpacing: "2px",
+              padding: "3px 10px",
+              textTransform: "uppercase",
+            }}
+          >
+            {entry.category}
+          </span>
+        )}
+        {entry.year && (
+          <span style={{ color: colors.coral, fontSize: "14px", fontWeight: "bold", marginLeft: "auto" }}>
+            {entry.year}
+          </span>
+        )}
+      </div>
+
+      <h3
+        style={{
+          fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+          fontSize: "18px",
+          fontWeight: "bold",
+          color: colors.charcoal,
+          margin: "0 0 10px 0",
+          letterSpacing: "1px",
+        }}
+      >
+        {entry.title}
+      </h3>
+
+      <p
+        style={{
+          fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+          fontSize: "15px",
+          color: colors.charcoal,
+          lineHeight: 1.7,
+          margin: 0,
+          whiteSpace: "pre-wrap",
+        }}
+      >
+        {entry.description}
+      </p>
+
+      {entry.imageUrl && (
+        <img
+          src={entry.imageUrl}
+          alt={entry.title}
+          draggable={false}
+          style={{ width: "100%", marginTop: "16px", border: `2px solid ${colors.charcoal}`, display: "block", boxSizing: "border-box" }}
+          onError={(e) => { e.target.style.display = "none"; }}
+        />
+      )}
+
+      {embedUrl && (
+        <div style={{ width: "100%", aspectRatio: "16/9", marginTop: "16px", border: `2px solid ${colors.charcoal}`, boxSizing: "border-box" }}>
+          <iframe
+            src={embedUrl}
+            style={{ width: "100%", height: "100%", border: "none", display: "block" }}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            title={entry.title}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Modal form for adding/editing side-panel entries. `variant` decides which
+// optional fields show: achievements get a category, process gets media URLs.
+function SideEntryEditor({ variant, entry, onSave, onClose }) {
+  const [formData, setFormData] = useState(
+    entry || {
+      title: "",
+      year: new Date().getFullYear().toString(),
+      category: variant === "achievements" ? ACHIEVEMENT_CATEGORIES[0] : "",
+      description: "",
+      imageUrl: "",
+      youtubeUrl: "",
+    }
+  );
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave({
+      ...formData,
+      id: entry?.id || Date.now(),
+    });
+  };
+
+  const inputStyle = {
+    width: "100%",
+    padding: "12px",
+    marginBottom: "16px",
+    border: `2px solid ${colors.charcoal}`,
+    fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+    fontSize: "14px",
+    boxSizing: "border-box",
+  };
+
+  const labelStyle = {
+    display: "block",
+    marginBottom: "4px",
+    fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+    fontWeight: "bold",
+    fontSize: "12px",
+    color: colors.charcoal,
+    letterSpacing: "1px",
+  };
+
+  const heading = entry
+    ? "EDIT ENTRY"
+    : variant === "achievements"
+      ? "ADD ACHIEVEMENT"
+      : "ADD PROCESS ENTRY";
+
+  return (
+    <>
+      <div onClick={onClose} style={{ position: "fixed", inset: 0, backgroundColor: `${colors.charcoal}99`, zIndex: 300 }} />
+      <div
+        style={{
+          position: "fixed",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          backgroundColor: "rgba(239, 232, 221, 0.75)",
+          backdropFilter: "blur(24px)",
+          WebkitBackdropFilter: "blur(24px)",
+          padding: "40px",
+          borderRadius: "16px",
+          border: `1px solid rgba(252, 119, 83, 0.4)`,
+          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(255, 255, 255, 0.2)",
+          zIndex: 301,
+          width: "90%",
+          maxWidth: "500px",
+          maxHeight: "90vh",
+          overflowY: "auto",
+        }}
+      >
+        <h2 style={{
+          fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+          fontSize: "24px",
+          fontWeight: "bold",
+          color: colors.charcoal,
+          marginBottom: "24px",
+        }}>
+          {heading}
+        </h2>
+
+        <form onSubmit={handleSubmit}>
+          <label style={labelStyle}>TITLE</label>
+          <input
+            type="text"
+            value={formData.title}
+            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+            required
+            style={inputStyle}
+          />
+
+          <div style={{ display: "flex", gap: "16px" }}>
+            {variant === "achievements" && (
+              <div style={{ flex: 1 }}>
+                <label style={labelStyle}>CATEGORY</label>
+                <select
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  style={{ ...inputStyle, cursor: "pointer" }}
+                >
+                  {ACHIEVEMENT_CATEGORIES.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>YEAR</label>
+              <input
+                type="text"
+                value={formData.year}
+                onChange={(e) => setFormData({ ...formData, year: e.target.value })}
+                style={inputStyle}
+              />
+            </div>
+          </div>
+
+          <label style={labelStyle}>DESCRIPTION</label>
+          <textarea
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            rows={5}
+            required
+            style={{ ...inputStyle, resize: "vertical" }}
+          />
+
+          {variant === "process" && (
+            <>
+              <label style={labelStyle}>IMAGE URL (optional)</label>
+              <input
+                type="url"
+                value={formData.imageUrl}
+                onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                placeholder="https://..."
+                style={inputStyle}
+              />
+
+              <label style={labelStyle}>YOUTUBE URL (optional)</label>
+              <input
+                type="url"
+                value={formData.youtubeUrl}
+                onChange={(e) => setFormData({ ...formData, youtubeUrl: e.target.value })}
+                placeholder="https://www.youtube.com/watch?v=..."
+                style={inputStyle}
+              />
+            </>
+          )}
+
+          <button
+            type="submit"
+            style={{
+              width: "100%",
+              padding: "14px",
+              backgroundColor: colors.coral,
+              color: colors.charcoal,
+              border: "none",
+              fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+              fontWeight: "bold",
+              fontSize: "14px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+            }}
+          >
+            <Save size={18} />
+            {entry ? "UPDATE" : "ADD"} ENTRY
+          </button>
+        </form>
+
+        <button
+          onClick={onClose}
+          style={{
+            position: "absolute",
+            top: "12px",
+            right: "12px",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+          }}
+        >
+          <X size={20} color={colors.charcoal} />
+        </button>
+      </div>
+    </>
+  );
+}
+
+// Stacked list of entries with admin controls and an empty state
+function SidePanel({ entries, isAdmin, onAdd, onEdit, onDelete, emptyLabel }) {
+  const [addHovered, setAddHovered] = useState(false);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "20px", alignItems: "center" }}>
+      {isAdmin && (
+        <button
+          onClick={onAdd}
+          onMouseEnter={() => setAddHovered(true)}
+          onMouseLeave={() => setAddHovered(false)}
+          style={{
+            width: "100%",
+            maxWidth: "760px",
+            padding: "20px",
+            border: `3px dashed ${addHovered ? colors.coral : colors.charcoal}`,
+            backgroundColor: addHovered ? `${colors.coral}22` : "transparent",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "12px",
+            transition: "all 0.3s ease",
+            boxSizing: "border-box",
+          }}
+        >
+          <Plus size={24} color={addHovered ? colors.coral : colors.charcoal} />
+          <span style={{
+            fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+            fontWeight: "bold",
+            fontSize: "13px",
+            color: addHovered ? colors.coral : colors.charcoal,
+            letterSpacing: "2px",
+          }}>
+            ADD ENTRY
+          </span>
+        </button>
+      )}
+
+      {entries.length === 0 && !isAdmin && (
+        <div style={{ padding: "60px 20px", textAlign: "center" }}>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: "16px" }}>
+            <div style={{ width: "8px", height: "8px", backgroundColor: colors.coral, transform: "rotate(45deg)" }} />
+          </div>
+          <p style={{
+            fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+            fontSize: "14px",
+            color: colors.charcoal,
+            opacity: 0.55,
+            letterSpacing: "3px",
+            margin: 0,
+          }}>
+            {emptyLabel}
+          </p>
+        </div>
+      )}
+
+      {entries.map((entry) => (
+        <SideEntryCard
+          key={entry.id}
+          entry={entry}
+          isAdmin={isAdmin}
+          onEdit={onEdit}
+          onDelete={onDelete}
+        />
+      ))}
+    </div>
+  );
+}
+
 // Hero Section
 function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) {
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 768);
@@ -2481,7 +2864,7 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) 
     const handleScroll = () => {
       if (atTop()) {
         // Back at the top: linger for a bit and the cue returns.
-        scheduleReappear(10000);
+        scheduleReappear(5000);
       } else {
         clearTimeout(reappearTimer);
         setShowArrow(false);
@@ -2881,9 +3264,29 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) 
 }
 
 // Portfolio Grid Section
-function PortfolioSection({ animations, onCardClick, isAdmin, onAddClick, onEditClick, onDeleteClick }) {
+// Three-panel showcase: Behind the Scenes | Animation Work | Achievements.
+// Animation Work stays the centre and the default; the side panels are reached
+// by clicking their titles or dragging/swiping horizontally.
+const SHOWCASE_PANELS = [
+  { key: "process", title: "BEHIND THE SCENES" },
+  { key: "work", title: "ANIMATION WORK" },
+  { key: "achievements", title: "ACHIEVEMENTS" },
+];
+
+function PortfolioSection({
+  animations, onCardClick, isAdmin, onAddClick, onEditClick, onDeleteClick,
+  achievements, processEntries, onSideAdd, onSideEdit, onSideDelete,
+}) {
   const [columnCount, setColumnCount] = useState(3);
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 768);
+
+  const [activeIndex, setActiveIndex] = useState(1);
+  const [dragX, setDragX] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [panelHeight, setPanelHeight] = useState(null);
+  const panelRefs = useRef([]);
+  const sliderRef = useRef(null);
+  const dragState = useRef({ pointerId: null, startX: 0, startY: 0, dragging: false, suppressClick: false });
 
   useEffect(() => {
     const updateLayout = () => {
@@ -2900,10 +3303,116 @@ function PortfolioSection({ animations, onCardClick, isAdmin, onAddClick, onEdit
     return () => window.removeEventListener('resize', updateLayout);
   }, []);
 
+  // The slider clips to the active panel's height so a short side panel does
+  // not leave the section stretched to the masonry grid's full height.
+  useEffect(() => {
+    const node = panelRefs.current[activeIndex];
+    if (!node) return;
+
+    const measure = () => setPanelHeight(node.offsetHeight);
+    measure();
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [activeIndex]);
+
+  // Drag/swipe between panels. The gesture only claims the pointer once it is
+  // clearly horizontal, so vertical scrolling over the panels still works, and
+  // a real drag suppresses the click that would otherwise open a card.
+  const handlePointerDown = (e) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    dragState.current = { pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, dragging: false, suppressClick: false };
+  };
+
+  const handlePointerMove = (e) => {
+    const s = dragState.current;
+    if (s.pointerId !== e.pointerId) return;
+
+    const dx = e.clientX - s.startX;
+    const dy = e.clientY - s.startY;
+
+    if (!s.dragging) {
+      if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) {
+        s.dragging = true;
+        setIsDragging(true);
+        try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* no-op */ }
+      } else {
+        return;
+      }
+    }
+
+    // Resistance at the ends: there is no panel further in that direction.
+    let offset = dx;
+    if ((activeIndex === 0 && dx > 0) || (activeIndex === SHOWCASE_PANELS.length - 1 && dx < 0)) {
+      offset = dx * 0.3;
+    }
+    setDragX(offset);
+  };
+
+  const endDrag = (e) => {
+    const s = dragState.current;
+    if (s.pointerId !== e.pointerId) return;
+
+    if (s.dragging) {
+      s.suppressClick = true;
+      setTimeout(() => { dragState.current.suppressClick = false; }, 0);
+
+      const width = sliderRef.current?.offsetWidth || window.innerWidth;
+      const threshold = Math.min(90, width * 0.18);
+      const dx = e.clientX - s.startX;
+
+      if (dx < -threshold && activeIndex < SHOWCASE_PANELS.length - 1) {
+        setActiveIndex(activeIndex + 1);
+      } else if (dx > threshold && activeIndex > 0) {
+        setActiveIndex(activeIndex - 1);
+      }
+    }
+
+    s.pointerId = null;
+    s.dragging = false;
+    setIsDragging(false);
+    setDragX(0);
+  };
+
   const cardGap = isMobile ? "12px" : "24px";
 
+  // Title positions relative to the active panel: 0 is centred, ±1 sit faded
+  // at the edges as clickable hints, anything further is parked offscreen.
+  const titleStyleFor = (index) => {
+    const rel = index - activeIndex;
+    // On phones the centre title nearly fills the width, so the side titles
+    // hug the screen edges at a smaller scale instead of overlapping it.
+    const positions = isMobile
+      ? { "-1": "3%", "0": "50%", "1": "97%" }
+      : { "-1": "12%", "0": "50%", "1": "88%" };
+    const left = positions[rel] ?? (rel < 0 ? "-40%" : "140%");
+    const isActive = rel === 0;
+    const sideScale = isMobile ? 0.45 : 0.6;
+
+    return {
+      position: "absolute",
+      top: "50%",
+      left,
+      transform: `translate(-50%, -50%) scale(${isActive ? 1 : sideScale})`,
+      opacity: Math.abs(rel) > 1 ? 0 : (isActive ? 1 : 0.4),
+      pointerEvents: isActive || Math.abs(rel) > 1 ? "none" : "auto",
+      transition: "left 0.45s ease, transform 0.45s ease, opacity 0.45s ease",
+      whiteSpace: "nowrap",
+      background: "none",
+      border: "none",
+      cursor: isActive ? "default" : "pointer",
+      padding: "8px 4px",
+      fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+      fontSize: "clamp(19px, 5vw, 32px)",
+      fontWeight: "bold",
+      color: colors.charcoal,
+      letterSpacing: "4px",
+    };
+  };
+
   return (
-    <section style={{ padding: isMobile ? "48px 14px 100px" : "80px 24px 140px", backgroundColor: colors.cream, position: "relative", zIndex: 1 }}>
+    <section style={{ padding: isMobile ? "48px 14px 100px" : "80px 24px 140px", backgroundColor: colors.cream, position: "relative", zIndex: 1, overflow: "hidden" }}>
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "4px", backgroundColor: colors.coral }} />
 
       <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
@@ -2911,42 +3420,105 @@ function PortfolioSection({ animations, onCardClick, isAdmin, onAddClick, onEdit
           <GeometricBorder width={150} color={colors.charcoal} />
         </div>
 
-        <h2
-          style={{
-            fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
-            fontSize: "clamp(24px, 5vw, 32px)",
-            fontWeight: "bold",
-            color: colors.charcoal,
-            marginBottom: "20px",
-            letterSpacing: "4px",
-            textAlign: "center",
-          }}
-        >
-          ANIMATION WORK
-        </h2>
+        <div style={{ position: "relative", height: "56px", marginBottom: "20px" }}>
+          {SHOWCASE_PANELS.map((panel, index) => (
+            <button
+              key={panel.key}
+              onClick={() => setActiveIndex(index)}
+              style={titleStyleFor(index)}
+              aria-label={`Show ${panel.title.toLowerCase()}`}
+            >
+              {panel.title}
+            </button>
+          ))}
+        </div>
 
         <div style={{ display: "flex", justifyContent: "center", marginBottom: isMobile ? "32px" : "60px" }}>
           <GeometricBorder width={150} color={colors.charcoal} />
         </div>
 
-        <div style={{ columnCount: columnCount, columnGap: cardGap }}>
-          {isAdmin && (
-            <div style={{ breakInside: "avoid", marginBottom: cardGap }}>
-              <AddAnimationButton onClick={onAddClick} />
+        <div
+          ref={sliderRef}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          onDragStart={(e) => e.preventDefault()}
+          onClickCapture={(e) => {
+            if (dragState.current.suppressClick) {
+              e.preventDefault();
+              e.stopPropagation();
+            }
+          }}
+          style={{
+            overflow: "hidden",
+            touchAction: "pan-y",
+            userSelect: isDragging ? "none" : "auto",
+            WebkitUserSelect: isDragging ? "none" : "auto",
+            height: panelHeight != null ? `${panelHeight}px` : "auto",
+            transition: isDragging ? "none" : "height 0.45s ease",
+            cursor: isDragging ? "grabbing" : "auto",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              width: "300%",
+              transform: `translateX(calc(${-activeIndex * (100 / 3)}% + ${dragX}px))`,
+              transition: isDragging ? "none" : "transform 0.45s ease",
+            }}
+          >
+            {/* Behind the Scenes */}
+            <div style={{ width: `${100 / 3}%`, flexShrink: 0, padding: "0 2px", boxSizing: "border-box", alignSelf: "flex-start" }}>
+              <div ref={(el) => { panelRefs.current[0] = el; }}>
+                <SidePanel
+                  entries={processEntries}
+                  isAdmin={isAdmin}
+                  onAdd={() => onSideAdd("process")}
+                  onEdit={(entry) => onSideEdit("process", entry)}
+                  onDelete={(id) => onSideDelete("process", id)}
+                  emptyLabel="PROCESS WORK COMING SOON"
+                />
+              </div>
             </div>
-          )}
-          {animations.map((animation) => (
-            <div key={animation.id} style={{ breakInside: "avoid", marginBottom: cardGap }}>
-              <AnimationCard
-                animation={animation}
-                onClick={() => onCardClick(animation)}
-                lightMode={true}
-                isAdmin={isAdmin}
-                onEdit={onEditClick}
-                onDelete={onDeleteClick}
-              />
+
+            {/* Animation Work */}
+            <div style={{ width: `${100 / 3}%`, flexShrink: 0, padding: "0 2px", boxSizing: "border-box", alignSelf: "flex-start" }}>
+              <div ref={(el) => { panelRefs.current[1] = el; }} style={{ columnCount: columnCount, columnGap: cardGap }}>
+                {isAdmin && (
+                  <div style={{ breakInside: "avoid", marginBottom: cardGap }}>
+                    <AddAnimationButton onClick={onAddClick} />
+                  </div>
+                )}
+                {animations.map((animation) => (
+                  <div key={animation.id} style={{ breakInside: "avoid", marginBottom: cardGap }}>
+                    <AnimationCard
+                      animation={animation}
+                      onClick={() => onCardClick(animation)}
+                      lightMode={true}
+                      isAdmin={isAdmin}
+                      onEdit={onEditClick}
+                      onDelete={onDeleteClick}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
-          ))}
+
+            {/* Achievements */}
+            <div style={{ width: `${100 / 3}%`, flexShrink: 0, padding: "0 2px", boxSizing: "border-box", alignSelf: "flex-start" }}>
+              <div ref={(el) => { panelRefs.current[2] = el; }}>
+                <SidePanel
+                  entries={achievements}
+                  isAdmin={isAdmin}
+                  onAdd={() => onSideAdd("achievements")}
+                  onEdit={(entry) => onSideEdit("achievements", entry)}
+                  onDelete={(id) => onSideDelete("achievements", id)}
+                  emptyLabel="ACHIEVEMENTS COMING SOON"
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -3207,7 +3779,10 @@ function AboutPage({ isAdmin, photoUrl, onEditPhoto, onResetPhoto, bio, onEditBi
 }
 
 // Home Page
-function HomePage({ animations, isAdmin, onAddClick, onEditClick, onDeleteClick, demoReelUrl, onEditDemoReel, onResetDemoReel }) {
+function HomePage({
+  animations, isAdmin, onAddClick, onEditClick, onDeleteClick, demoReelUrl, onEditDemoReel, onResetDemoReel,
+  achievements, processEntries, onSideAdd, onSideEdit, onSideDelete,
+}) {
   const [selectedAnimation, setSelectedAnimation] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -3236,6 +3811,11 @@ function HomePage({ animations, isAdmin, onAddClick, onEditClick, onDeleteClick,
         onAddClick={onAddClick}
         onEditClick={onEditClick}
         onDeleteClick={onDeleteClick}
+        achievements={achievements}
+        processEntries={processEntries}
+        onSideAdd={onSideAdd}
+        onSideEdit={onSideEdit}
+        onSideDelete={onSideDelete}
       />
       <AnimationModal
         isOpen={isModalOpen}
@@ -3263,7 +3843,13 @@ export default function App() {
   const [customPhotoUrl, setCustomPhotoUrl] = useState(null);
   const [customDemoReelUrl, setCustomDemoReelUrl] = useState(null);
   const [customBio, setCustomBio] = useState(null);
-  
+
+  // Side panel content (Behind the Scenes / Achievements) and its editor.
+  // sideEditor is { collection: "achievements" | "process", entry: object|null }.
+  const [achievements, setAchievements] = useState([]);
+  const [processEntries, setProcessEntries] = useState([]);
+  const [sideEditor, setSideEditor] = useState(null);
+
   // Track if data has been loaded from Firebase
   const firebaseLoadedRef = useRef(false);
 
@@ -3338,9 +3924,20 @@ export default function App() {
       }
     });
     
+    // Subscribe to side panel content
+    const unsubAchievements = subscribeToAchievements((data) => {
+      if (data && Array.isArray(data)) setAchievements(data);
+    });
+
+    const unsubProcess = subscribeToProcessEntries((data) => {
+      if (data && Array.isArray(data)) setProcessEntries(data);
+    });
+
     return () => {
       unsubSettings();
       unsubAnimations();
+      unsubAchievements();
+      unsubProcess();
     };
   }, []);
 
@@ -3502,6 +4099,54 @@ export default function App() {
     }, 100);
   };
 
+  // === SIDE PANEL CONTENT (Behind the Scenes / Achievements) ===
+
+  const sideCollection = (collection) =>
+    collection === "achievements"
+      ? { entries: achievements, setEntries: setAchievements, save: saveAchievements, label: "achievements" }
+      : { entries: processEntries, setEntries: setProcessEntries, save: saveProcessEntries, label: "process entries" };
+
+  const pushSideEntries = async (collection, entries) => {
+    const { save, label } = sideCollection(collection);
+    const result = await save(entries);
+    if (!result.ok) window.alert(`Couldn't save ${label}.\n\n${result.message}`);
+    return result;
+  };
+
+  const handleSideAdd = (collection) => {
+    setSideEditor({ collection, entry: null });
+  };
+
+  const handleSideEdit = (collection, entry) => {
+    setSideEditor({ collection, entry });
+  };
+
+  const handleSideDelete = (collection, id) => {
+    if (window.confirm("Are you sure you want to delete this entry?")) {
+      const { entries, setEntries } = sideCollection(collection);
+      const newEntries = entries.filter(e => e.id !== id);
+      setEntries(newEntries);
+      setTimeout(() => {
+        pushSideEntries(collection, newEntries);
+      }, 100);
+    }
+  };
+
+  const handleSideSave = (entry) => {
+    const { collection, entry: editing } = sideEditor;
+    const { entries, setEntries } = sideCollection(collection);
+
+    const newEntries = editing
+      ? entries.map(e => e.id === entry.id ? entry : e)
+      : [entry, ...entries];
+
+    setEntries(newEntries);
+    setSideEditor(null);
+    setTimeout(() => {
+      pushSideEntries(collection, newEntries);
+    }, 100);
+  };
+
   return (
     <div
       style={{
@@ -3565,6 +4210,11 @@ export default function App() {
             demoReelUrl={customDemoReelUrl}
             onEditDemoReel={handleEditDemoReel}
             onResetDemoReel={handleResetDemoReel}
+            achievements={achievements}
+            processEntries={processEntries}
+            onSideAdd={handleSideAdd}
+            onSideEdit={handleSideEdit}
+            onSideDelete={handleSideDelete}
           />
         ) : (
           <AboutPage
@@ -3589,6 +4239,14 @@ export default function App() {
           animation={editingAnimation}
           onSave={handleSaveAnimation}
           onClose={() => { setShowEditor(false); setEditingAnimation(null); }}
+        />
+      )}
+      {sideEditor && (
+        <SideEntryEditor
+          variant={sideEditor.collection}
+          entry={sideEditor.entry}
+          onSave={handleSideSave}
+          onClose={() => setSideEditor(null)}
         />
       )}
     </div>

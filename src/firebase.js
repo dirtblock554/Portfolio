@@ -29,6 +29,8 @@ const auth = getAuth(app);
 // Database references
 const settingsRef = ref(database, "settings");
 const animationsRef = ref(database, "animations");
+const achievementsRef = ref(database, "achievements");
+const processRef = ref(database, "process");
 
 // ============================================
 // AUTH
@@ -150,6 +152,28 @@ export const saveAnimations = async (animations) => {
   }
 };
 
+// Save achievements to Firebase
+export const saveAchievements = async (achievements) => {
+  try {
+    await set(achievementsRef, achievements);
+    return { ok: true };
+  } catch (error) {
+    console.error("Error saving achievements:", error);
+    return writeFailure(error);
+  }
+};
+
+// Save process entries to Firebase
+export const saveProcessEntries = async (entries) => {
+  try {
+    await set(processRef, entries);
+    return { ok: true };
+  } catch (error) {
+    console.error("Error saving process entries:", error);
+    return writeFailure(error);
+  }
+};
+
 // Get settings from Firebase (one-time)
 export const getSettings = async () => {
   try {
@@ -190,6 +214,24 @@ export const subscribeToSettings = (callback) => {
 // Subscribe to animations changes (real-time)
 export const subscribeToAnimations = (callback) => {
   return onValue(animationsRef, (snapshot) => {
+    if (snapshot.exists()) {
+      callback(snapshot.val());
+    }
+  });
+};
+
+// Subscribe to achievements changes (real-time)
+export const subscribeToAchievements = (callback) => {
+  return onValue(achievementsRef, (snapshot) => {
+    if (snapshot.exists()) {
+      callback(snapshot.val());
+    }
+  });
+};
+
+// Subscribe to process entries changes (real-time)
+export const subscribeToProcessEntries = (callback) => {
+  return onValue(processRef, (snapshot) => {
     if (snapshot.exists()) {
       callback(snapshot.val());
     }
