@@ -1905,7 +1905,8 @@ function AnimationModal({ isOpen, onClose, animation }) {
             display: "flex",
             flexDirection: "column",
             backgroundColor: colors.cream,
-            overflow: "hidden",
+            overflowY: "auto",
+            overflowX: "hidden",
           }}
         >
           <button
@@ -2011,19 +2012,12 @@ function AnimationModal({ isOpen, onClose, animation }) {
               </span>
             </div>
 
-            <div
-              style={{
-                flex: 1,
-                overflowY: "auto",
-                minHeight: 0,
-                maxHeight: "120px",
-              }}
-            >
+            <div>
               <p
                 style={{
                   fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
                   color: colors.charcoal,
-                  fontSize: "16px",
+                  fontSize: "clamp(15px, 3.5vw, 17px)",
                   lineHeight: 1.6,
                   margin: 0,
                 }}
@@ -2458,10 +2452,10 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) 
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 768);
   const displayDemoReelUrl = demoReelUrl || portfolioData.demoReelUrl;
 
-  // On phones the intro fills the screen and the reel starts below the fold, so
-  // it fades in on first sight. Desktop keeps the reel visible from the start.
+  // The intro fills the screen on every size and the reel starts below the
+  // fold, so it fades in on first sight regardless of device.
   const [showArrow, setShowArrow] = useState(false);
-  const [reelVisible, setReelVisible] = useState(typeof window === 'undefined' || window.innerWidth > 768);
+  const [reelVisible, setReelVisible] = useState(false);
   const arrowDismissed = useRef(false);
   const reelRef = useRef(null);
 
@@ -2474,16 +2468,15 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) 
   // Fade the cue in shortly after load, so it reads as an invitation rather
   // than part of the title.
   useEffect(() => {
-    if (!isMobile || arrowDismissed.current) return;
+    if (arrowDismissed.current) return;
     const timer = setTimeout(() => {
       if (!arrowDismissed.current) setShowArrow(true);
     }, 700);
     return () => clearTimeout(timer);
-  }, [isMobile]);
+  }, []);
 
   // Once the visitor scrolls, the cue has done its job and doesn't come back.
   useEffect(() => {
-    if (!isMobile) return;
     const handleScroll = () => {
       if (window.scrollY > 24 && !arrowDismissed.current) {
         arrowDismissed.current = true;
@@ -2492,14 +2485,10 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) 
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [isMobile]);
+  }, []);
 
   // Reveal the reel the first time it comes into view, then stop watching.
   useEffect(() => {
-    if (!isMobile) {
-      setReelVisible(true);
-      return;
-    }
     const target = reelRef.current;
     if (!target) return;
 
@@ -2515,7 +2504,7 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) 
 
     observer.observe(target);
     return () => observer.disconnect();
-  }, [isMobile]);
+  }, []);
 
   const handleArrowClick = () => {
     arrowDismissed.current = true;
@@ -2561,23 +2550,20 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) 
       </style>
 
       <div
-        className={isMobile ? "hero-viewport" : undefined}
+        className="hero-viewport"
         style={{
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           width: "100%",
-          // Phones: a full screenful, centred, with room at the bottom for the
-          // scroll cue. The offset matches <main>'s nav clearance (which grows
-          // in admin mode) plus this section's top padding.
-          ...(isMobile
-            ? {
-                justifyContent: "center",
-                position: "relative",
-                paddingBottom: "150px",
-                "--hero-offset": isAdmin ? "120px" : "84px",
-              }
-            : {}),
+          // A full screenful on every size, centred, with room at the bottom
+          // for the scroll cue. The offset matches <main>'s nav clearance
+          // (which grows in admin mode) plus this section's own top padding
+          // (which differs between mobile and desktop).
+          justifyContent: "center",
+          position: "relative",
+          paddingBottom: "150px",
+          "--hero-offset": `${(isAdmin ? 100 : 64) + (isMobile ? 20 : 40)}px`,
         }}
       >
       <div
@@ -2705,42 +2691,40 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) 
         </p>
       </div>
 
-        {isMobile && (
-          <button
-            onClick={handleArrowClick}
-            aria-label="Scroll to demo reel"
-            style={{
-              position: "absolute",
-              // Clears the fixed footer (72px tall plus its own safe-area
-              // padding), which would otherwise sit on top of the cue.
-              bottom: "calc(88px + env(safe-area-inset-bottom))",
-              left: "50%",
-              transform: "translateX(-50%)",
-              background: "none",
-              border: "none",
-              padding: "12px",
-              cursor: "pointer",
-              opacity: showArrow ? 1 : 0,
-              pointerEvents: showArrow ? "auto" : "none",
-              transition: "opacity 0.8s ease",
-              WebkitTapHighlightColor: "transparent",
-            }}
+        <button
+          onClick={handleArrowClick}
+          aria-label="Scroll to demo reel"
+          style={{
+            position: "absolute",
+            // Clears the fixed footer (72px tall plus its own safe-area
+            // padding), which would otherwise sit on top of the cue.
+            bottom: "calc(88px + env(safe-area-inset-bottom))",
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "none",
+            border: "none",
+            padding: "12px",
+            cursor: "pointer",
+            opacity: showArrow ? 1 : 0,
+            pointerEvents: showArrow ? "auto" : "none",
+            transition: "opacity 0.8s ease",
+            WebkitTapHighlightColor: "transparent",
+          }}
+        >
+          <svg
+            className="hero-arrow-bob"
+            width="36"
+            height="36"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke={colors.coral}
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
           >
-            <svg
-              className="hero-arrow-bob"
-              width="36"
-              height="36"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke={colors.coral}
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </button>
-        )}
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
       </div>
 
       {/* Demo Reel Section */}
