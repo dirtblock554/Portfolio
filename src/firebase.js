@@ -6,6 +6,13 @@ import {
   signOut,
   onAuthStateChanged,
 } from "firebase/auth";
+import {
+  getStorage,
+  ref as storageRef,
+  uploadBytes,
+  getDownloadURL,
+  deleteObject,
+} from "firebase/storage";
 
 // NOTE: these values are not secrets. A Firebase web config is meant to ship in
 // the client bundle; access is controlled by the database rules in
@@ -25,6 +32,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
 const auth = getAuth(app);
+const storage = getStorage(app);
 
 // Database references
 const settingsRef = ref(database, "settings");
@@ -111,6 +119,38 @@ export const subscribeToAdminState = (callback) => {
       callback(false);
     }
   });
+};
+
+// ============================================
+// STORAGE (uploaded entry photos)
+// ============================================
+
+// Uploads one image file under entry-media/<collection>/<entryId>/, returning
+// its public download URL. Storage rules cap files at 10MB and require an
+// image content type.
+export const uploadEntryImage = async (collection, entryId, file) => {
+  try {
+    const path = `entry-media/${collection}/${entryId}/${Date.now()}-${file.name}`;
+    const fileRef = storageRef(storage, path);
+    await uploadBytes(fileRef, file);
+    const url = await getDownloadURL(fileRef);
+    return { ok: true, url, path };
+  } catch (error) {
+    console.error("Error uploading image:", error);
+    return { ok: false, message: error?.message || "Upload failed." };
+  }
+};
+
+// Best-effort cleanup when a photo is removed from an entry. Failures are
+// swallowed -- an orphaned file in Storage costs nothing the visitor sees,
+// unlike a failed data save.
+export const deleteEntryImage = async (path) => {
+  if (!path) return;
+  try {
+    await deleteObject(storageRef(storage, path));
+  } catch (error) {
+    console.error("Error deleting image:", error);
+  }
 };
 
 // ============================================

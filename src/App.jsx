@@ -9,6 +9,8 @@ import {
   subscribeToGalleries,
   saveAchievements,
   saveGallery,
+  uploadEntryImage,
+  deleteEntryImage,
   signInAdmin,
   signOutAdmin,
   subscribeToAdminState,
@@ -2584,22 +2586,379 @@ function AddAnimationButton({ onClick }) {
 
 const ACHIEVEMENT_CATEGORIES = ["Award", "Achievement", "Experience", "Commission"];
 
-// Article-style stacked box used by both side panels
-function SideEntryCard({ entry, isAdmin, onEdit, onDelete }) {
-  const embedUrl = entry.youtubeUrl ? getYouTubeEmbedUrl(entry.youtubeUrl) : null;
+// Photo upload + optional video-link picker, shared by every entry editor.
+// Uploads go straight to Firebase Storage under entry-media/<collection>/<entryId>/
+// so admins attach real photos instead of hosting images elsewhere and
+// pasting a URL. `onUploadingChange` lets the parent form disable Save while
+// an upload is still in flight.
+function MediaUploader({ media, onChange, collection, entryId, onUploadingChange }) {
+  const [uploadingCount, setUploadingCount] = useState(0);
+  const [videoUrlDraft, setVideoUrlDraft] = useState("");
+  const fileInputRef = useRef(null);
+
+  const reportUploading = (delta) => {
+    setUploadingCount((prev) => {
+      const next = prev + delta;
+      onUploadingChange?.(next > 0);
+      return next;
+    });
+  };
+
+  const handleFilesSelected = async (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = ""; // allow picking the same file again later
+    if (files.length === 0) return;
+
+    reportUploading(files.length);
+    const uploaded = await Promise.all(
+      files.map(async (file) => {
+        const result = await uploadEntryImage(collection, entryId, file);
+        reportUploading(-1);
+        if (!result.ok) {
+          window.alert(`Couldn't upload ${file.name}.\n\n${result.message}`);
+          return null;
+        }
+        return { type: "image", url: result.url, path: result.path };
+      })
+    );
+
+    const successful = uploaded.filter(Boolean);
+    if (successful.length > 0) {
+      onChange([...media, ...successful]);
+    }
+  };
+
+  const handleAddVideo = () => {
+    const url = videoUrlDraft.trim();
+    if (!url) return;
+    if (!getYouTubeId(url)) {
+      window.alert("That doesn't look like a YouTube URL.");
+      return;
+    }
+    onChange([...media, { type: "video", url }]);
+    setVideoUrlDraft("");
+  };
+
+  const handleRemove = (index) => {
+    const item = media[index];
+    if (item.type === "image" && item.path) {
+      deleteEntryImage(item.path);
+    }
+    onChange(media.filter((_, i) => i !== index));
+  };
+
+  const tileStyle = {
+    position: "relative",
+    width: "80px",
+    height: "80px",
+    flexShrink: 0,
+    border: `2px solid ${colors.charcoal}`,
+    backgroundColor: colors.charcoal,
+    overflow: "hidden",
+  };
+
+  const removeButtonStyle = {
+    position: "absolute",
+    top: "2px",
+    right: "2px",
+    width: "20px",
+    height: "20px",
+    backgroundColor: colors.charcoal,
+    border: `1px solid ${colors.coral}`,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 0,
+  };
+
+  return (
+    <div style={{ marginBottom: "16px" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginBottom: "10px" }}>
+        {media.map((item, index) => (
+          <div key={index} style={tileStyle}>
+            {item.type === "image" ? (
+              <img src={item.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            ) : (
+              <img
+                src={getYouTubeThumbnail(item.url)}
+                alt=""
+                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: 0.7 }}
+              />
+            )}
+            {item.type === "video" && (
+              <Play
+                size={18}
+                color={colors.cream}
+                fill={colors.cream}
+                style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", pointerEvents: "none" }}
+              />
+            )}
+            <button type="button" onClick={() => handleRemove(index)} style={removeButtonStyle} aria-label="Remove">
+              <X size={12} color={colors.coral} />
+            </button>
+          </div>
+        ))}
+
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          style={{
+            ...tileStyle,
+            border: `2px dashed ${colors.charcoal}`,
+            backgroundColor: "transparent",
+            cursor: "pointer",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "4px",
+          }}
+        >
+          <Plus size={20} color={colors.charcoal} />
+          <span style={{ fontSize: "9px", fontWeight: "bold", color: colors.charcoal, letterSpacing: "1px" }}>PHOTOS</span>
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={handleFilesSelected}
+          style={{ display: "none" }}
+        />
+      </div>
+
+      {uploadingCount > 0 && (
+        <p style={{ fontSize: "12px", color: colors.coral, fontWeight: "bold", margin: "0 0 10px 0" }}>
+          Uploading {uploadingCount} photo{uploadingCount > 1 ? "s" : ""}...
+        </p>
+      )}
+
+      <div style={{ display: "flex", gap: "8px" }}>
+        <input
+          type="url"
+          value={videoUrlDraft}
+          onChange={(e) => setVideoUrlDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddVideo(); } }}
+          placeholder="Paste a YouTube URL to add a video"
+          style={{
+            flex: 1,
+            padding: "10px 12px",
+            border: `2px solid ${colors.charcoal}`,
+            fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+            fontSize: "13px",
+            boxSizing: "border-box",
+          }}
+        />
+        <button
+          type="button"
+          onClick={handleAddVideo}
+          style={{
+            padding: "0 16px",
+            backgroundColor: colors.charcoal,
+            color: colors.cream,
+            border: "none",
+            fontWeight: "bold",
+            fontSize: "13px",
+            cursor: "pointer",
+          }}
+        >
+          ADD
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Full-detail "article" popup shared by achievements and every gallery
+// category — scrollable, showing the complete description and every photo
+// or video attached to the entry.
+function EntryDetailModal({ entry, onClose, showCategory }) {
+  const [closeHovered, setCloseHovered] = useState(false);
+
+  if (!entry) return null;
+
+  return (
+    <>
+      <div
+        onClick={onClose}
+        style={{ position: "fixed", inset: 0, backgroundColor: `${colors.charcoal}ee`, zIndex: 200 }}
+      />
+
+      <div
+        style={{
+          position: "fixed",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: "90%",
+          maxWidth: "760px",
+          zIndex: 201,
+        }}
+      >
+        <div
+          style={{
+            maxHeight: "85vh",
+            display: "flex",
+            flexDirection: "column",
+            backgroundColor: colors.cream,
+            overflowY: "auto",
+            overflowX: "hidden",
+            position: "relative",
+          }}
+        >
+          <button
+            onClick={onClose}
+            onMouseEnter={() => setCloseHovered(true)}
+            onMouseLeave={() => setCloseHovered(false)}
+            aria-label="Close"
+            style={{
+              position: "absolute",
+              top: "12px",
+              right: "12px",
+              backgroundColor: closeHovered ? colors.charcoal : colors.cream,
+              border: `2px solid ${colors.charcoal}`,
+              width: "32px",
+              height: "32px",
+              cursor: "pointer",
+              zIndex: 10,
+              transform: "rotate(45deg)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              transition: "background-color 0.2s ease",
+            }}
+          >
+            <X
+              size={16}
+              color={closeHovered ? colors.coral : colors.charcoal}
+              style={{ transform: "rotate(-45deg)", transition: "color 0.2s ease" }}
+            />
+          </button>
+
+          <div style={{ padding: "32px", display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "14px", flexWrap: "wrap" }}>
+              {showCategory && entry.category && (
+                <span
+                  style={{
+                    backgroundColor: colors.coral,
+                    color: colors.charcoal,
+                    fontSize: "11px",
+                    fontWeight: "bold",
+                    letterSpacing: "2px",
+                    padding: "4px 10px",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {entry.category}
+                </span>
+              )}
+              <h2
+                style={{
+                  fontFamily: "'Bebas Neue', Impact, 'Arial Black', sans-serif",
+                  fontSize: "28px",
+                  fontWeight: "400",
+                  color: colors.charcoal,
+                  margin: 0,
+                  letterSpacing: "2px",
+                }}
+              >
+                {entry.title.toUpperCase()}
+              </h2>
+              {entry.year && (
+                <span
+                  style={{
+                    fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+                    color: colors.coral,
+                    fontSize: "18px",
+                    fontWeight: "bold",
+                    marginLeft: "auto",
+                  }}
+                >
+                  {entry.year}
+                </span>
+              )}
+            </div>
+
+            {entry.description && (
+              <p
+                style={{
+                  fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+                  color: colors.charcoal,
+                  fontSize: "clamp(15px, 3.5vw, 17px)",
+                  lineHeight: 1.7,
+                  margin: 0,
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {entry.description}
+              </p>
+            )}
+
+            {entry.media?.length > 0 && (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "16px",
+                  marginTop: entry.description ? "24px" : 0,
+                }}
+              >
+                {entry.media.map((item, index) =>
+                  item.type === "video" ? (
+                    <div
+                      key={index}
+                      style={{ width: "100%", aspectRatio: "16/9", backgroundColor: colors.charcoal, border: `3px solid ${colors.coral}`, flexShrink: 0 }}
+                    >
+                      <iframe
+                        src={getYouTubeEmbedUrl(item.url)}
+                        style={{ width: "100%", height: "100%", border: "none" }}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        title={`${entry.title} video ${index + 1}`}
+                      />
+                    </div>
+                  ) : (
+                    <img
+                      key={index}
+                      src={item.url}
+                      alt={`${entry.title} ${index + 1}`}
+                      style={{ width: "100%", display: "block", border: `2px solid ${colors.charcoal}`, boxSizing: "border-box" }}
+                    />
+                  )
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// Compact clickable preview for the achievements list — click opens the full
+// EntryDetailModal with the complete description and all attached photos.
+function AchievementCard({ entry, isAdmin, onEdit, onDelete, onClick }) {
+  const photoCount = entry.media?.filter((m) => m.type === "image").length || 0;
+  const thumbnail = entry.media?.[0];
 
   return (
     <div
+      onClick={onClick}
       style={{
         position: "relative",
         border: `2px solid ${colors.charcoal}`,
         backgroundColor: colors.cream,
-        padding: "24px 28px",
+        padding: "20px 24px",
         textAlign: "left",
         width: "100%",
         maxWidth: "760px",
         margin: "0 auto",
         boxSizing: "border-box",
+        cursor: "pointer",
+        display: "flex",
+        gap: "16px",
+        alignItems: "center",
       }}
     >
       <div style={{ position: "absolute", top: "-2px", left: "-2px", width: "18px", height: "18px", borderTop: `3px solid ${colors.coral}`, borderLeft: `3px solid ${colors.coral}` }} />
@@ -2610,13 +2969,13 @@ function SideEntryCard({ entry, isAdmin, onEdit, onDelete }) {
       {isAdmin && (
         <div style={{ position: "absolute", top: "8px", right: "8px", display: "flex", gap: "8px", zIndex: 5 }}>
           <button
-            onClick={() => onEdit(entry)}
+            onClick={(e) => { e.stopPropagation(); onEdit(entry); }}
             style={{ backgroundColor: colors.coral, border: "none", padding: "8px", cursor: "pointer" }}
           >
             <Edit size={14} color={colors.cream} />
           </button>
           <button
-            onClick={() => onDelete(entry.id)}
+            onClick={(e) => { e.stopPropagation(); onDelete(entry.id); }}
             style={{ backgroundColor: colors.charcoal, border: `1px solid ${colors.coral}`, padding: "8px", cursor: "pointer" }}
           >
             <Trash2 size={14} color={colors.coral} />
@@ -2624,98 +2983,112 @@ function SideEntryCard({ entry, isAdmin, onEdit, onDelete }) {
         </div>
       )}
 
-      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "10px", flexWrap: "wrap" }}>
-        {entry.category && (
-          <span
-            style={{
-              backgroundColor: colors.coral,
-              color: colors.charcoal,
-              fontSize: "11px",
-              fontWeight: "bold",
-              letterSpacing: "2px",
-              padding: "3px 10px",
-              textTransform: "uppercase",
-            }}
-          >
-            {entry.category}
-          </span>
-        )}
-        {entry.year && (
-          <span style={{ color: colors.coral, fontSize: "14px", fontWeight: "bold", marginLeft: "auto" }}>
-            {entry.year}
-          </span>
-        )}
-      </div>
-
-      <h3
-        style={{
-          fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
-          fontSize: "18px",
-          fontWeight: "bold",
-          color: colors.charcoal,
-          margin: "0 0 10px 0",
-          letterSpacing: "1px",
-        }}
-      >
-        {entry.title}
-      </h3>
-
-      <p
-        style={{
-          fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
-          fontSize: "15px",
-          color: colors.charcoal,
-          lineHeight: 1.7,
-          margin: 0,
-          whiteSpace: "pre-wrap",
-        }}
-      >
-        {entry.description}
-      </p>
-
-      {entry.imageUrl && (
-        <img
-          src={entry.imageUrl}
-          alt={entry.title}
-          draggable={false}
-          style={{ width: "100%", marginTop: "16px", border: `2px solid ${colors.charcoal}`, display: "block", boxSizing: "border-box" }}
-          onError={(e) => { e.target.style.display = "none"; }}
-        />
-      )}
-
-      {embedUrl && (
-        <div style={{ width: "100%", aspectRatio: "16/9", marginTop: "16px", border: `2px solid ${colors.charcoal}`, boxSizing: "border-box" }}>
-          <iframe
-            src={embedUrl}
-            style={{ width: "100%", height: "100%", border: "none", display: "block" }}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            title={entry.title}
+      {thumbnail && (
+        <div style={{ position: "relative", width: "64px", height: "64px", flexShrink: 0, border: `2px solid ${colors.coral}`, overflow: "hidden" }}>
+          <img
+            src={thumbnail.type === "image" ? thumbnail.url : getYouTubeThumbnail(thumbnail.url)}
+            alt=""
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
           />
+          {photoCount > 1 && (
+            <span
+              style={{
+                position: "absolute",
+                bottom: "2px",
+                right: "2px",
+                backgroundColor: `${colors.charcoal}dd`,
+                color: colors.cream,
+                fontSize: "10px",
+                fontWeight: "bold",
+                padding: "1px 5px",
+              }}
+            >
+              +{photoCount - 1}
+            </span>
+          )}
         </div>
       )}
+
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "6px", flexWrap: "wrap" }}>
+          {entry.category && (
+            <span
+              style={{
+                backgroundColor: colors.coral,
+                color: colors.charcoal,
+                fontSize: "10px",
+                fontWeight: "bold",
+                letterSpacing: "2px",
+                padding: "3px 8px",
+                textTransform: "uppercase",
+              }}
+            >
+              {entry.category}
+            </span>
+          )}
+          {entry.year && (
+            <span style={{ color: colors.coral, fontSize: "13px", fontWeight: "bold", marginLeft: "auto" }}>
+              {entry.year}
+            </span>
+          )}
+        </div>
+
+        <h3
+          style={{
+            fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+            fontSize: "17px",
+            fontWeight: "bold",
+            color: colors.charcoal,
+            margin: "0 0 4px 0",
+            letterSpacing: "1px",
+          }}
+        >
+          {entry.title}
+        </h3>
+
+        <p
+          style={{
+            fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+            fontSize: "14px",
+            color: colors.charcoal,
+            opacity: 0.75,
+            lineHeight: 1.5,
+            margin: 0,
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+          }}
+        >
+          {entry.description}
+        </p>
+      </div>
     </div>
   );
 }
 
 // Modal form for adding/editing side-panel entries. `variant` decides which
 // optional fields show: achievements get a category, process gets media URLs.
-function SideEntryEditor({ entry, onSave, onClose }) {
+function AchievementEditor({ entry, onSave, onClose }) {
+  // The id is generated immediately (not at submit) so photo uploads have a
+  // stable Storage path to land in from the moment the form opens, whether
+  // this ends up being a new entry or an edit.
   const [formData, setFormData] = useState(
-    entry || {
-      title: "",
-      year: new Date().getFullYear().toString(),
-      category: ACHIEVEMENT_CATEGORIES[0],
-      description: "",
-    }
+    () =>
+      entry || {
+        id: Date.now(),
+        title: "",
+        year: new Date().getFullYear().toString(),
+        category: ACHIEVEMENT_CATEGORIES[0],
+        description: "",
+        media: [],
+      }
   );
+  const [isUploading, setIsUploading] = useState(false);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave({
-      ...formData,
-      id: entry?.id || Date.now(),
-    });
+    onSave(formData);
   };
 
   const inputStyle = {
@@ -2816,18 +3189,28 @@ function SideEntryEditor({ entry, onSave, onClose }) {
             style={{ ...inputStyle, resize: "vertical" }}
           />
 
+          <label style={labelStyle}>PHOTOS / VIDEO</label>
+          <MediaUploader
+            media={formData.media || []}
+            onChange={(media) => setFormData({ ...formData, media })}
+            collection="achievements"
+            entryId={formData.id}
+            onUploadingChange={setIsUploading}
+          />
+
           <button
             type="submit"
+            disabled={isUploading}
             style={{
               width: "100%",
               padding: "14px",
-              backgroundColor: colors.coral,
+              backgroundColor: isUploading ? `${colors.coral}88` : colors.coral,
               color: colors.charcoal,
               border: "none",
               fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
               fontWeight: "bold",
               fontSize: "14px",
-              cursor: "pointer",
+              cursor: isUploading ? "not-allowed" : "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -2835,7 +3218,7 @@ function SideEntryEditor({ entry, onSave, onClose }) {
             }}
           >
             <Save size={18} />
-            {entry ? "UPDATE" : "ADD"} ENTRY
+            {isUploading ? "UPLOADING..." : entry ? "UPDATE ENTRY" : "ADD ENTRY"}
           </button>
         </form>
 
@@ -2858,7 +3241,7 @@ function SideEntryEditor({ entry, onSave, onClose }) {
 }
 
 // Stacked list of entries with admin controls and an empty state
-function SidePanel({ entries, isAdmin, onAdd, onEdit, onDelete, emptyLabel }) {
+function SidePanel({ entries, isAdmin, onAdd, onEdit, onDelete, onCardClick, emptyLabel }) {
   const [addHovered, setAddHovered] = useState(false);
 
   return (
@@ -2915,12 +3298,13 @@ function SidePanel({ entries, isAdmin, onAdd, onEdit, onDelete, emptyLabel }) {
       )}
 
       {entries.map((entry) => (
-        <SideEntryCard
+        <AchievementCard
           key={entry.id}
           entry={entry}
           isAdmin={isAdmin}
           onEdit={onEdit}
           onDelete={onDelete}
+          onClick={() => onCardClick(entry)}
         />
       ))}
     </div>
@@ -3586,8 +3970,10 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel, on
 // thumbnail with a play badge.
 function GalleryCard({ entry, isAdmin, onEdit, onDelete, onClick }) {
   const [isHovered, setIsHovered] = useState(false);
-  const thumbnailUrl = entry.imageUrl || getYouTubeThumbnail(entry.youtubeUrl);
-  const isVideo = !entry.imageUrl && !!entry.youtubeUrl;
+  const firstItem = entry.media?.[0];
+  const thumbnailUrl = firstItem?.type === "image" ? firstItem.url : getYouTubeThumbnail(firstItem?.url);
+  const isVideo = firstItem?.type === "video";
+  const photoCount = entry.media?.filter((m) => m.type === "image").length || 0;
 
   return (
     <div
@@ -3660,6 +4046,24 @@ function GalleryCard({ entry, isAdmin, onEdit, onDelete, onClick }) {
           </div>
         )}
 
+        {photoCount > 1 && (
+          <span
+            style={{
+              position: "absolute",
+              top: "8px",
+              left: "8px",
+              backgroundColor: `${colors.charcoal}dd`,
+              color: colors.cream,
+              fontSize: "11px",
+              fontWeight: "bold",
+              padding: "2px 7px",
+              pointerEvents: "none",
+            }}
+          >
+            +{photoCount - 1}
+          </span>
+        )}
+
         <div
           style={{
             position: "absolute",
@@ -3713,173 +4117,30 @@ function GalleryCard({ entry, isAdmin, onEdit, onDelete, onClick }) {
   );
 }
 
-// Enlarged view of a gallery entry — embedded video or full image plus text.
-function GalleryModal({ entry, onClose }) {
-  const [closeHovered, setCloseHovered] = useState(false);
-
-  if (!entry) return null;
-
-  const embedUrl = entry.youtubeUrl ? getYouTubeEmbedUrl(entry.youtubeUrl) : null;
-
-  return (
-    <>
-      <div
-        onClick={onClose}
-        style={{ position: "fixed", inset: 0, backgroundColor: `${colors.charcoal}ee`, zIndex: 200 }}
-      />
-
-      <div
-        style={{
-          position: "fixed",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: "90%",
-          maxWidth: "760px",
-          zIndex: 201,
-        }}
-      >
-        <div
-          style={{
-            maxHeight: "85vh",
-            display: "flex",
-            flexDirection: "column",
-            backgroundColor: colors.cream,
-            overflowY: "auto",
-            overflowX: "hidden",
-            position: "relative",
-          }}
-        >
-          <button
-            onClick={onClose}
-            onMouseEnter={() => setCloseHovered(true)}
-            onMouseLeave={() => setCloseHovered(false)}
-            aria-label="Close"
-            style={{
-              position: "absolute",
-              top: "12px",
-              right: "12px",
-              backgroundColor: closeHovered ? colors.charcoal : colors.cream,
-              border: `2px solid ${colors.charcoal}`,
-              width: "32px",
-              height: "32px",
-              cursor: "pointer",
-              zIndex: 10,
-              transform: "rotate(45deg)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              transition: "background-color 0.2s ease",
-            }}
-          >
-            <X
-              size={16}
-              color={closeHovered ? colors.coral : colors.charcoal}
-              style={{ transform: "rotate(-45deg)", transition: "color 0.2s ease" }}
-            />
-          </button>
-
-          <div style={{ padding: "24px", display: "flex", flexDirection: "column" }}>
-            {embedUrl ? (
-              <div
-                style={{
-                  width: "100%",
-                  aspectRatio: "16/9",
-                  marginBottom: "16px",
-                  backgroundColor: colors.charcoal,
-                  border: `3px solid ${colors.coral}`,
-                  flexShrink: 0,
-                }}
-              >
-                <iframe
-                  src={embedUrl}
-                  style={{ width: "100%", height: "100%", border: "none" }}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  title={entry.title}
-                />
-              </div>
-            ) : entry.imageUrl ? (
-              <div style={{ marginBottom: "16px", border: `3px solid ${colors.coral}`, backgroundColor: colors.charcoal }}>
-                <img
-                  src={entry.imageUrl}
-                  alt={entry.title}
-                  style={{ width: "100%", maxHeight: "60vh", objectFit: "contain", display: "block" }}
-                />
-              </div>
-            ) : null}
-
-            <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: entry.description ? "12px" : 0, flexWrap: "wrap" }}>
-              <h2
-                style={{
-                  fontFamily: "'Bebas Neue', Impact, 'Arial Black', sans-serif",
-                  fontSize: "28px",
-                  fontWeight: "400",
-                  color: colors.charcoal,
-                  margin: 0,
-                  letterSpacing: "2px",
-                }}
-              >
-                {entry.title.toUpperCase()}
-              </h2>
-              {entry.year && (
-                <span
-                  style={{
-                    fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
-                    color: colors.coral,
-                    fontSize: "18px",
-                    fontWeight: "bold",
-                    marginLeft: "auto",
-                  }}
-                >
-                  {entry.year}
-                </span>
-              )}
-            </div>
-
-            {entry.description && (
-              <p
-                style={{
-                  fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
-                  color: colors.charcoal,
-                  fontSize: "clamp(15px, 3.5vw, 17px)",
-                  lineHeight: 1.6,
-                  margin: 0,
-                }}
-              >
-                {entry.description}
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-    </>
-  );
-}
-
-// Modal form for adding/editing a gallery entry. Needs an image URL or a
-// YouTube URL (or both) so the tile always has something to show.
-function GalleryEntryEditor({ entry, onSave, onClose }) {
+// Modal form for adding/editing a gallery entry. Needs at least one photo or
+// a video so the tile always has something to show.
+function GalleryEntryEditor({ entry, category, onSave, onClose }) {
+  // The id is generated immediately (not at submit) so photo uploads have a
+  // stable Storage path from the moment the form opens.
   const [formData, setFormData] = useState(
-    entry || {
-      title: "",
-      year: new Date().getFullYear().toString(),
-      description: "",
-      imageUrl: "",
-      youtubeUrl: "",
-    }
+    () =>
+      entry || {
+        id: Date.now(),
+        title: "",
+        year: new Date().getFullYear().toString(),
+        description: "",
+        media: [],
+      }
   );
+  const [isUploading, setIsUploading] = useState(false);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.imageUrl.trim() && !formData.youtubeUrl.trim()) {
-      window.alert("Add an image URL or a YouTube URL so the tile has something to show.");
+    if (!formData.media || formData.media.length === 0) {
+      window.alert("Add at least one photo or a video so the tile has something to show.");
       return;
     }
-    onSave({
-      ...formData,
-      id: entry?.id || Date.now(),
-    });
+    onSave(formData);
   };
 
   const inputStyle = {
@@ -3953,24 +4214,6 @@ function GalleryEntryEditor({ entry, onSave, onClose }) {
             style={inputStyle}
           />
 
-          <label style={labelStyle}>IMAGE URL</label>
-          <input
-            type="url"
-            value={formData.imageUrl}
-            onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-            placeholder="https://..."
-            style={inputStyle}
-          />
-
-          <label style={labelStyle}>YOUTUBE URL (used if no image, or for video work)</label>
-          <input
-            type="url"
-            value={formData.youtubeUrl}
-            onChange={(e) => setFormData({ ...formData, youtubeUrl: e.target.value })}
-            placeholder="https://www.youtube.com/watch?v=..."
-            style={inputStyle}
-          />
-
           <label style={labelStyle}>DESCRIPTION (optional)</label>
           <textarea
             value={formData.description}
@@ -3979,18 +4222,28 @@ function GalleryEntryEditor({ entry, onSave, onClose }) {
             style={{ ...inputStyle, resize: "vertical" }}
           />
 
+          <label style={labelStyle}>PHOTOS / VIDEO</label>
+          <MediaUploader
+            media={formData.media || []}
+            onChange={(media) => setFormData({ ...formData, media })}
+            collection={`galleries/${category}`}
+            entryId={formData.id}
+            onUploadingChange={setIsUploading}
+          />
+
           <button
             type="submit"
+            disabled={isUploading}
             style={{
               width: "100%",
               padding: "14px",
-              backgroundColor: colors.coral,
+              backgroundColor: isUploading ? `${colors.coral}88` : colors.coral,
               color: colors.charcoal,
               border: "none",
               fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
               fontWeight: "bold",
               fontSize: "14px",
-              cursor: "pointer",
+              cursor: isUploading ? "not-allowed" : "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -3998,7 +4251,7 @@ function GalleryEntryEditor({ entry, onSave, onClose }) {
             }}
           >
             <Save size={18} />
-            {entry ? "UPDATE" : "ADD"} ENTRY
+            {isUploading ? "UPLOADING..." : entry ? "UPDATE ENTRY" : "ADD ENTRY"}
           </button>
         </form>
 
@@ -4118,7 +4371,7 @@ function PortfolioSection({
 
   // The active panel lives in App state so the category menus can drive it too.
   const setActiveIndex = onActiveIndexChange;
-  const [galleryModalEntry, setGalleryModalEntry] = useState(null);
+  const [detailModalEntry, setDetailModalEntry] = useState(null);
   const [dragX, setDragX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [panelHeight, setPanelHeight] = useState(null);
@@ -4425,7 +4678,7 @@ function PortfolioSection({
                       onAdd={() => onGalleryAdd(panel.key)}
                       onEdit={(entry) => onGalleryEdit(panel.key, entry)}
                       onDelete={(id) => onGalleryDelete(panel.key, id)}
-                      onCardClick={(entry) => setGalleryModalEntry(entry)}
+                      onCardClick={(entry) => setDetailModalEntry(entry)}
                       emptyLabel={panel.emptyLabel}
                     />
                   )}
@@ -4437,6 +4690,7 @@ function PortfolioSection({
                       onAdd={onAchievementAdd}
                       onEdit={onAchievementEdit}
                       onDelete={onAchievementDelete}
+                      onCardClick={(entry) => setDetailModalEntry(entry)}
                       emptyLabel="ACHIEVEMENTS COMING SOON"
                     />
                   )}
@@ -4447,9 +4701,11 @@ function PortfolioSection({
         </div>
       </div>
 
-      {galleryModalEntry && (
-        <GalleryModal entry={galleryModalEntry} onClose={() => setGalleryModalEntry(null)} />
-      )}
+      <EntryDetailModal
+        entry={detailModalEntry}
+        showCategory={SHOWCASE_PANELS[activeIndex]?.type === "achievements"}
+        onClose={() => setDetailModalEntry(null)}
+      />
     </section>
   );
 }
@@ -5040,6 +5296,13 @@ export default function App() {
     }, 100);
   };
 
+  // Best-effort cleanup of an entry's uploaded photos when it's deleted.
+  const deleteEntryMedia = (entry) => {
+    (entry.media || []).forEach((item) => {
+      if (item.type === "image" && item.path) deleteEntryImage(item.path);
+    });
+  };
+
   // === ACHIEVEMENTS ===
 
   const pushAchievements = async (entries) => {
@@ -5053,8 +5316,10 @@ export default function App() {
 
   const handleAchievementDelete = (id) => {
     if (window.confirm("Are you sure you want to delete this entry?")) {
+      const removed = achievements.find(e => e.id === id);
       const newEntries = achievements.filter(e => e.id !== id);
       setAchievements(newEntries);
+      if (removed) deleteEntryMedia(removed);
       setTimeout(() => {
         pushAchievements(newEntries);
       }, 100);
@@ -5086,8 +5351,11 @@ export default function App() {
 
   const handleGalleryDelete = (category, id) => {
     if (window.confirm("Are you sure you want to delete this entry?")) {
-      const newEntries = (galleries[category] || []).filter(e => e.id !== id);
+      const current = galleries[category] || [];
+      const removed = current.find(e => e.id === id);
+      const newEntries = current.filter(e => e.id !== id);
       setGalleries({ ...galleries, [category]: newEntries });
+      if (removed) deleteEntryMedia(removed);
       setTimeout(() => {
         pushGallery(category, newEntries);
       }, 100);
@@ -5235,7 +5503,7 @@ export default function App() {
         />
       )}
       {achievementEditor && (
-        <SideEntryEditor
+        <AchievementEditor
           entry={achievementEditor.entry}
           onSave={handleAchievementSave}
           onClose={() => setAchievementEditor(null)}
@@ -5244,6 +5512,7 @@ export default function App() {
       {galleryEditor && (
         <GalleryEntryEditor
           entry={galleryEditor.entry}
+          category={galleryEditor.category}
           onSave={handleGallerySave}
           onClose={() => setGalleryEditor(null)}
         />
