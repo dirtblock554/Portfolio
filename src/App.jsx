@@ -584,6 +584,52 @@ const defaultAnimations = [
 // HELPER FUNCTIONS
 // ============================================
 
+// Downscale and re-encode an image in the browser before it is uploaded. A
+// photo straight off a camera is often 4-8MB, which is far more than a web
+// page ever displays -- shrinking it first cuts storage, bandwidth and page
+// load time by roughly an order of magnitude with no visible difference.
+const MAX_IMAGE_EDGE = 1600;
+const IMAGE_QUALITY = 0.85;
+
+async function compressImage(file) {
+  // Redrawing an animated GIF to a canvas would flatten it to one frame.
+  if (file.type === "image/gif") return file;
+
+  try {
+    // createImageBitmap applies EXIF orientation, so phone photos don't come
+    // out rotated the way a raw canvas draw would leave them.
+    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+
+    const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(bitmap.width, bitmap.height));
+    const width = Math.round(bitmap.width * scale);
+    const height = Math.round(bitmap.height * scale);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    canvas.getContext("2d").drawImage(bitmap, 0, 0, width, height);
+    bitmap.close?.();
+
+    // WebP keeps transparency (which matters for concept art and logos) and
+    // compresses better than JPEG. A browser that can't encode WebP silently
+    // hands back PNG instead, so fall back to JPEG in that case.
+    let blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/webp", IMAGE_QUALITY));
+    if (!blob || blob.type !== "image/webp") {
+      blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", IMAGE_QUALITY));
+    }
+
+    // Re-encoding can enlarge an already-optimised file; keep whichever is smaller.
+    if (!blob || blob.size >= file.size) return file;
+
+    const extension = blob.type === "image/webp" ? "webp" : "jpg";
+    const baseName = file.name.replace(/\.[^.]+$/, "") || "image";
+    return new File([blob], `${baseName}.${extension}`, { type: blob.type });
+  } catch (error) {
+    console.error("Image compression failed, uploading the original:", error);
+    return file;
+  }
+}
+
 function getYouTubeId(url) {
   if (!url) return null;
   // Supports: youtube.com/watch?v=, youtu.be/, youtube.com/embed/, youtube.com/shorts/
@@ -2612,7 +2658,8 @@ function MediaUploader({ media, onChange, collection, entryId, onUploadingChange
     reportUploading(files.length);
     const uploaded = await Promise.all(
       files.map(async (file) => {
-        const result = await uploadEntryImage(collection, entryId, file);
+        const optimised = await compressImage(file);
+        const result = await uploadEntryImage(collection, entryId, optimised);
         reportUploading(-1);
         if (!result.ok) {
           window.alert(`Couldn't upload ${file.name}.\n\n${result.message}`);
@@ -4711,9 +4758,10 @@ function PortfolioSection({
 }
 
 // About Page
-function AboutPage({ isAdmin, photoUrl, onEditPhoto, onResetPhoto, bio, onEditBio, onResetBio }) {
+function AboutPage({ isAdmin, photoUrl, photoUploading, onEditPhoto, onResetPhoto, bio, onEditBio, onResetBio }) {
   const displayPhotoUrl = photoUrl || portfolioData.about.photoUrl;
   const displayBio = bio || portfolioData.about.bio;
+  const photoInputRef = useRef(null);
 
   return (
     <div
@@ -4780,14 +4828,15 @@ function AboutPage({ isAdmin, photoUrl, onEditPhoto, onResetPhoto, bio, onEditBi
               {isAdmin && (
                 <div style={{ position: "absolute", bottom: "10px", right: "10px", display: "flex", gap: "8px" }}>
                   <button
-                    onClick={onEditPhoto}
+                    onClick={() => photoInputRef.current?.click()}
+                    disabled={photoUploading}
                     style={{
-                      backgroundColor: colors.coral,
+                      backgroundColor: photoUploading ? `${colors.coral}88` : colors.coral,
                       color: colors.charcoal,
                       border: "none",
                       borderRadius: "4px",
                       padding: "8px 12px",
-                      cursor: "pointer",
+                      cursor: photoUploading ? "not-allowed" : "pointer",
                       fontSize: "12px",
                       fontWeight: "bold",
                       display: "flex",
@@ -4795,18 +4844,30 @@ function AboutPage({ isAdmin, photoUrl, onEditPhoto, onResetPhoto, bio, onEditBi
                       gap: "4px",
                     }}
                   >
-                    <Edit size={14} /> Edit
+                    <Edit size={14} /> {photoUploading ? "Uploading..." : "Upload"}
                   </button>
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = ""; // let the same file be picked again
+                      if (file) onEditPhoto(file);
+                    }}
+                    style={{ display: "none" }}
+                  />
                   {photoUrl && (
                     <button
                       onClick={onResetPhoto}
+                      disabled={photoUploading}
                       style={{
                         backgroundColor: colors.charcoal,
                         color: colors.cream,
                         border: `1px solid ${colors.cream}`,
                         borderRadius: "4px",
                         padding: "8px 12px",
-                        cursor: "pointer",
+                        cursor: photoUploading ? "not-allowed" : "pointer",
                         fontSize: "12px",
                         fontWeight: "bold",
                       }}
@@ -5034,8 +5095,12 @@ export default function App() {
   const [showNavName, setShowNavName] = useState(false);
 
   const [customPhotoUrl, setCustomPhotoUrl] = useState(null);
+  // Storage path of an uploaded profile photo, kept so the old file can be
+  // removed when it's replaced or reset.
+  const [customPhotoPath, setCustomPhotoPath] = useState(null);
   const [customDemoReelUrl, setCustomDemoReelUrl] = useState(null);
   const [customBio, setCustomBio] = useState(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
 
   // Showcase content and navigation. galleries is an object keyed by category
   // (storyboarding, concepts, ...); activeCategory indexes SHOWCASE_PANELS so
@@ -5107,6 +5172,7 @@ export default function App() {
       if (data) {
         firebaseLoadedRef.current = true;
         if (data.photoUrl !== undefined) setCustomPhotoUrl(data.photoUrl);
+        if (data.photoPath !== undefined) setCustomPhotoPath(data.photoPath);
         if (data.demoReelUrl !== undefined) setCustomDemoReelUrl(data.demoReelUrl);
         if (data.bio !== undefined) setCustomBio(data.bio);
       }
@@ -5142,8 +5208,17 @@ export default function App() {
 
   // The database rejects writes from anyone who isn't a signed-in admin, so a
   // failed save has to surface — otherwise the edit looks applied until reload.
-  const pushSettings = async (settings) => {
-    const result = await saveSettings(settings);
+  // All settings live under one node, so every save rewrites the whole object.
+  // Callers pass just the fields they changed and the rest are carried over
+  // from current state.
+  const pushSettings = async (changes) => {
+    const result = await saveSettings({
+      photoUrl: customPhotoUrl,
+      photoPath: customPhotoPath,
+      demoReelUrl: customDemoReelUrl,
+      bio: customBio,
+      ...changes,
+    });
     if (!result.ok) window.alert(`Couldn't save settings.\n\n${result.message}`);
     return result;
   };
@@ -5169,31 +5244,35 @@ export default function App() {
   };
 
   // Handlers for editing - NOW EXPLICITLY SAVE
-  const handleEditPhoto = () => {
-    const newUrl = window.prompt("Enter new photo URL:", customPhotoUrl || portfolioData.about.photoUrl);
-    if (newUrl !== null && newUrl.trim() !== "") {
-      setCustomPhotoUrl(newUrl.trim());
-      // Save after state update
-      setTimeout(() => {
-        pushSettings({
-          photoUrl: newUrl.trim(),
-          demoReelUrl: customDemoReelUrl,
-          bio: customBio,
-        });
-      }, 100);
+  const handleEditPhoto = async (file) => {
+    if (!file) return;
+
+    setPhotoUploading(true);
+    const optimised = await compressImage(file);
+    const result = await uploadEntryImage("about", "profile", optimised);
+    setPhotoUploading(false);
+
+    if (!result.ok) {
+      window.alert(`Couldn't upload the photo.\n\n${result.message}`);
+      return;
     }
+
+    const previousPath = customPhotoPath;
+    setCustomPhotoUrl(result.url);
+    setCustomPhotoPath(result.path);
+    const saved = await pushSettings({ photoUrl: result.url, photoPath: result.path });
+
+    // Only bin the old file once the new one is safely recorded.
+    if (saved.ok && previousPath) deleteEntryImage(previousPath);
   };
 
-  const handleResetPhoto = () => {
+  const handleResetPhoto = async () => {
     if (window.confirm("Reset to default photo?")) {
+      const previousPath = customPhotoPath;
       setCustomPhotoUrl(null);
-      setTimeout(() => {
-        pushSettings({
-          photoUrl: null,
-          demoReelUrl: customDemoReelUrl,
-          bio: customBio,
-        });
-      }, 100);
+      setCustomPhotoPath(null);
+      const saved = await pushSettings({ photoUrl: null, photoPath: null });
+      if (saved.ok && previousPath) deleteEntryImage(previousPath);
     }
   };
 
@@ -5201,26 +5280,14 @@ export default function App() {
     const newUrl = window.prompt("Enter new YouTube embed URL:\n(Format: https://www.youtube.com/embed/VIDEO_ID)", customDemoReelUrl || portfolioData.demoReelUrl);
     if (newUrl !== null && newUrl.trim() !== "") {
       setCustomDemoReelUrl(newUrl.trim());
-      setTimeout(() => {
-        pushSettings({
-          photoUrl: customPhotoUrl,
-          demoReelUrl: newUrl.trim(),
-          bio: customBio,
-        });
-      }, 100);
+      pushSettings({ demoReelUrl: newUrl.trim() });
     }
   };
 
   const handleResetDemoReel = () => {
     if (window.confirm("Reset to default demo reel?")) {
       setCustomDemoReelUrl(null);
-      setTimeout(() => {
-        pushSettings({
-          photoUrl: customPhotoUrl,
-          demoReelUrl: null,
-          bio: customBio,
-        });
-      }, 100);
+      pushSettings({ demoReelUrl: null });
     }
   };
 
@@ -5228,26 +5295,14 @@ export default function App() {
     const newBio = window.prompt("Enter new bio text:", customBio || portfolioData.about.bio);
     if (newBio !== null && newBio.trim() !== "") {
       setCustomBio(newBio.trim());
-      setTimeout(() => {
-        pushSettings({
-          photoUrl: customPhotoUrl,
-          demoReelUrl: customDemoReelUrl,
-          bio: newBio.trim(),
-        });
-      }, 100);
+      pushSettings({ bio: newBio.trim() });
     }
   };
 
   const handleResetBio = () => {
     if (window.confirm("Reset to default bio?")) {
       setCustomBio(null);
-      setTimeout(() => {
-        pushSettings({
-          photoUrl: customPhotoUrl,
-          demoReelUrl: customDemoReelUrl,
-          bio: null,
-        });
-      }, 100);
+      pushSettings({ bio: null });
     }
   };
 
@@ -5481,6 +5536,7 @@ export default function App() {
           <AboutPage
             isAdmin={isAdmin}
             photoUrl={customPhotoUrl}
+            photoUploading={photoUploading}
             onEditPhoto={handleEditPhoto}
             onResetPhoto={handleResetPhoto}
             bio={customBio}
