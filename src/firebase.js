@@ -30,7 +30,7 @@ const auth = getAuth(app);
 const settingsRef = ref(database, "settings");
 const animationsRef = ref(database, "animations");
 const achievementsRef = ref(database, "achievements");
-const processRef = ref(database, "process");
+const galleriesRef = ref(database, "galleries");
 
 // ============================================
 // AUTH
@@ -163,13 +163,13 @@ export const saveAchievements = async (achievements) => {
   }
 };
 
-// Save process entries to Firebase
-export const saveProcessEntries = async (entries) => {
+// Save one gallery category (storyboarding, concepts, graphic design, ...)
+export const saveGallery = async (category, entries) => {
   try {
-    await set(processRef, entries);
+    await set(ref(database, `galleries/${category}`), entries);
     return { ok: true };
   } catch (error) {
-    console.error("Error saving process entries:", error);
+    console.error(`Error saving ${category} gallery:`, error);
     return writeFailure(error);
   }
 };
@@ -229,9 +229,10 @@ export const subscribeToAchievements = (callback) => {
   });
 };
 
-// Subscribe to process entries changes (real-time)
-export const subscribeToProcessEntries = (callback) => {
-  return onValue(processRef, (snapshot) => {
+// Subscribe to all gallery categories at once (real-time). The value is an
+// object keyed by category name, each holding an array of entries.
+export const subscribeToGalleries = (callback) => {
+  return onValue(galleriesRef, (snapshot) => {
     if (snapshot.exists()) {
       callback(snapshot.val());
     }

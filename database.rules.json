@@ -18,7 +18,7 @@
       ".write": "auth != null && root.child('admins').child(auth.uid).val() === true"
     },
 
-    "process": {
+    "galleries": {
       ".read": true,
       ".write": "auth != null && root.child('admins').child(auth.uid).val() === true"
     },

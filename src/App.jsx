@@ -6,9 +6,9 @@ import {
   saveSettings,
   saveAnimations,
   subscribeToAchievements,
-  subscribeToProcessEntries,
+  subscribeToGalleries,
   saveAchievements,
-  saveProcessEntries,
+  saveGallery,
   signInAdmin,
   signOutAdmin,
   subscribeToAdminState,
@@ -85,9 +85,9 @@ const eyeStateManager = {
 
   scheduleNextBlink() {
     if (!this.isRunning) return;
-    const delay = 3000 + Math.random() * 4000;
+    const delay = 2000 + Math.random() * 2500;
     this.blinkTimeoutId = setTimeout(() => {
-      const useDoubleBlink = Math.random() < 0.2;
+      const useDoubleBlink = Math.random() < 0.25;
       this.instances.forEach(instance => {
         if (instance.inputs) {
           const doubleBlink = instance.inputs.DoubleBlink || instance.inputs.doubleBlink;
@@ -1405,14 +1405,19 @@ function Footer({ onAdminClick, isAdmin }) {
 }
 
 // Navigation - Fixed mobile alignment
-function Navigation({ currentPage, setCurrentPage, showNavEye = false, showNavName = false, onEyeClick }) {
+function Navigation({ currentPage, setCurrentPage, showNavEye = false, showNavName = false, onEyeClick, onOpenWorkMenu }) {
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 768);
+  // When the About Me bubble expands it occupies the space to the icon's left,
+  // so the work-menu hamburger slides aside and returns when it closes.
+  const [aboutBubbleVisible, setAboutBubbleVisible] = useState(false);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  const sideWidth = isMobile ? "92px" : "100px";
 
   return (
     <nav
@@ -1433,7 +1438,7 @@ function Navigation({ currentPage, setCurrentPage, showNavEye = false, showNavNa
       }}
     >
       {/* Left container */}
-      <div style={{ width: "80px", flexShrink: 0, display: "flex", alignItems: "center" }}>
+      <div style={{ width: sideWidth, flexShrink: 0, display: "flex", alignItems: "center" }}>
         <button
           onClick={() => {
             if (onEyeClick) onEyeClick();
@@ -1498,15 +1503,131 @@ function Navigation({ currentPage, setCurrentPage, showNavEye = false, showNavNa
       </div>
 
       {/* Right container */}
-      <div style={{ width: "80px", flexShrink: 0, display: "flex", justifyContent: "flex-end" }}>
-        <AboutMeButton currentPage={currentPage} setCurrentPage={setCurrentPage} />
+      <div style={{ width: sideWidth, flexShrink: 0, display: "flex", justifyContent: "flex-end", alignItems: "center", gap: isMobile ? "6px" : "10px" }}>
+        <WorkMenuButton
+          onClick={onOpenWorkMenu}
+          shifted={aboutBubbleVisible}
+          isMobile={isMobile}
+        />
+        <AboutMeButton
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
+          onBubbleChange={setAboutBubbleVisible}
+        />
       </div>
     </nav>
   );
 }
 
+// Work menu hamburger that lives beside the About Me control. Slides aside
+// while the About Me bubble is out so the bubble never covers it.
+function WorkMenuButton({ onClick, shifted, isMobile }) {
+  const [isHovered, setIsHovered] = useState(false);
+
+  const showBubble = !isMobile && isHovered;
+  const barStyle = {
+    width: "22px",
+    height: "3px",
+    backgroundColor: isHovered ? colors.cream : colors.coral,
+    transition: "background-color 0.2s ease",
+  };
+
+  return (
+    <div
+      style={{
+        position: "relative",
+        flexShrink: 0,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        transform: shifted ? "translateX(-158px)" : "translateX(0)",
+        transition: "transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
+      }}
+    >
+      {showBubble && (
+        <div
+          style={{
+            position: "absolute",
+            right: "calc(100% + 10px)",
+            top: "50%",
+            transform: "translateY(-50%)",
+            backgroundColor: colors.coral,
+            padding: "8px 16px",
+            borderRadius: "4px",
+            whiteSpace: "nowrap",
+            animation: "slideInBounce 0.5s ease-out forwards",
+            pointerEvents: "none",
+          }}
+        >
+          <span
+            style={{
+              fontFamily: "'Bebas Neue', Impact, 'Arial Black', sans-serif",
+              fontSize: "22px",
+              fontWeight: "400",
+              color: colors.charcoal,
+              letterSpacing: "2px",
+            }}
+          >
+            MY WORK
+          </span>
+          <div
+            style={{
+              position: "absolute",
+              right: "-8px",
+              top: "50%",
+              transform: "translateY(-50%)",
+              width: 0,
+              height: 0,
+              borderTop: "8px solid transparent",
+              borderBottom: "8px solid transparent",
+              borderLeft: `8px solid ${colors.coral}`,
+            }}
+          />
+        </div>
+      )}
+
+      <button
+        onClick={onClick}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        aria-label="Open portfolio menu"
+        style={{
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          padding: "6px 4px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "5px",
+          transition: "transform 0.2s ease",
+          transform: isHovered ? "scale(1.15)" : "scale(1)",
+        }}
+      >
+        <div style={barStyle} />
+        <div style={barStyle} />
+        <div style={barStyle} />
+      </button>
+
+      {isMobile && (
+        <span
+          style={{
+            fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+            fontSize: "8px",
+            fontWeight: "bold",
+            color: colors.cream,
+            letterSpacing: "1px",
+            marginTop: "2px",
+          }}
+        >
+          WORK
+        </span>
+      )}
+    </div>
+  );
+}
+
 // About Me Button with speech bubble
-function AboutMeButton({ currentPage, setCurrentPage }) {
+function AboutMeButton({ currentPage, setCurrentPage, onBubbleChange }) {
   const [isHovered, setIsHovered] = useState(false);
   const [showInitialBubble, setShowInitialBubble] = useState(true);
   const [isFadingOut, setIsFadingOut] = useState(false);
@@ -1538,6 +1659,12 @@ function AboutMeButton({ currentPage, setCurrentPage }) {
   }, [isMobile]);
 
   const showBubble = !isMobile && (isHovered || showInitialBubble) && !isOnAboutPage;
+
+  // Let the nav know when the bubble is out so neighbouring controls can
+  // slide clear of it.
+  useEffect(() => {
+    if (onBubbleChange) onBubbleChange(showBubble);
+  }, [showBubble, onBubbleChange]);
 
   return (
     <div
@@ -2573,15 +2700,13 @@ function SideEntryCard({ entry, isAdmin, onEdit, onDelete }) {
 
 // Modal form for adding/editing side-panel entries. `variant` decides which
 // optional fields show: achievements get a category, process gets media URLs.
-function SideEntryEditor({ variant, entry, onSave, onClose }) {
+function SideEntryEditor({ entry, onSave, onClose }) {
   const [formData, setFormData] = useState(
     entry || {
       title: "",
       year: new Date().getFullYear().toString(),
-      category: variant === "achievements" ? ACHIEVEMENT_CATEGORIES[0] : "",
+      category: ACHIEVEMENT_CATEGORIES[0],
       description: "",
-      imageUrl: "",
-      youtubeUrl: "",
     }
   );
 
@@ -2613,11 +2738,7 @@ function SideEntryEditor({ variant, entry, onSave, onClose }) {
     letterSpacing: "1px",
   };
 
-  const heading = entry
-    ? "EDIT ENTRY"
-    : variant === "achievements"
-      ? "ADD ACHIEVEMENT"
-      : "ADD PROCESS ENTRY";
+  const heading = entry ? "EDIT ACHIEVEMENT" : "ADD ACHIEVEMENT";
 
   return (
     <>
@@ -2663,20 +2784,18 @@ function SideEntryEditor({ variant, entry, onSave, onClose }) {
           />
 
           <div style={{ display: "flex", gap: "16px" }}>
-            {variant === "achievements" && (
-              <div style={{ flex: 1 }}>
-                <label style={labelStyle}>CATEGORY</label>
-                <select
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  style={{ ...inputStyle, cursor: "pointer" }}
-                >
-                  {ACHIEVEMENT_CATEGORIES.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
-            )}
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>CATEGORY</label>
+              <select
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                style={{ ...inputStyle, cursor: "pointer" }}
+              >
+                {ACHIEVEMENT_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
             <div style={{ flex: 1 }}>
               <label style={labelStyle}>YEAR</label>
               <input
@@ -2696,28 +2815,6 @@ function SideEntryEditor({ variant, entry, onSave, onClose }) {
             required
             style={{ ...inputStyle, resize: "vertical" }}
           />
-
-          {variant === "process" && (
-            <>
-              <label style={labelStyle}>IMAGE URL (optional)</label>
-              <input
-                type="url"
-                value={formData.imageUrl}
-                onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                placeholder="https://..."
-                style={inputStyle}
-              />
-
-              <label style={labelStyle}>YOUTUBE URL (optional)</label>
-              <input
-                type="url"
-                value={formData.youtubeUrl}
-                onChange={(e) => setFormData({ ...formData, youtubeUrl: e.target.value })}
-                placeholder="https://www.youtube.com/watch?v=..."
-                style={inputStyle}
-              />
-            </>
-          )}
 
           <button
             type="submit"
@@ -2830,8 +2927,224 @@ function SidePanel({ entries, isAdmin, onAdd, onEdit, onDelete, emptyLabel }) {
   );
 }
 
+// Centered glass hamburger under the hero tagline — opens the category menu.
+function HeroWorkMenuButton({ onClick }) {
+  const [isHovered, setIsHovered] = useState(false);
+
+  const barStyle = {
+    width: "26px",
+    height: "3px",
+    backgroundColor: isHovered ? colors.cream : colors.coral,
+    transition: "background-color 0.25s ease",
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      aria-label="Open portfolio menu"
+      style={{
+        marginTop: "22px",
+        padding: "12px 20px",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: "5px",
+        cursor: "pointer",
+        background: isHovered
+          ? "linear-gradient(135deg, rgba(252, 119, 83, 0.35) 0%, rgba(252, 119, 83, 0.15) 100%)"
+          : "linear-gradient(135deg, rgba(28, 28, 28, 0.4) 0%, rgba(28, 28, 28, 0.2) 100%)",
+        backdropFilter: "blur(16px)",
+        WebkitBackdropFilter: "blur(16px)",
+        border: `1px solid ${isHovered ? "rgba(239, 232, 221, 0.4)" : "rgba(252, 119, 83, 0.3)"}`,
+        borderRadius: "10px",
+        boxShadow: "0 4px 16px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
+        transition: "all 0.25s ease",
+        transform: isHovered ? "scale(1.08)" : "scale(1)",
+        WebkitTapHighlightColor: "transparent",
+      }}
+    >
+      <div style={barStyle} />
+      <div style={barStyle} />
+      <div style={barStyle} />
+    </button>
+  );
+}
+
+// ============================================
+// CATEGORY MENU (opened from hero + nav hamburgers)
+// ============================================
+function CategoryMenu({ open, onClose, onSelect, activeIndex }) {
+  const [visible, setVisible] = useState(false);
+  const activeItemRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) {
+      setVisible(false);
+      return;
+    }
+    const raf = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(raf);
+  }, [open]);
+
+  // Escape closes, and focus moves to the current category so a keyboard
+  // user immediately knows where they are in the list.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    const focusTimer = setTimeout(() => activeItemRef.current?.focus(), 100);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      clearTimeout(focusTimer);
+    };
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <>
+      <div
+        onClick={onClose}
+        style={{
+          position: "fixed",
+          inset: 0,
+          backgroundColor: `${colors.charcoal}cc`,
+          zIndex: 300,
+          opacity: visible ? 1 : 0,
+          transition: "opacity 0.3s ease",
+        }}
+      />
+
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Portfolio categories"
+        className="work-menu-panel"
+        style={{
+          position: "fixed",
+          left: "50%",
+          top: visible ? "50%" : "54%",
+          transform: "translate(-50%, -50%)",
+          backgroundColor: "rgba(28, 28, 28, 0.7)",
+          backdropFilter: "blur(24px)",
+          WebkitBackdropFilter: "blur(24px)",
+          padding: "40px 56px",
+          borderRadius: "16px",
+          border: `1px solid rgba(252, 119, 83, 0.4)`,
+          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.08)",
+          zIndex: 301,
+          maxHeight: "85vh",
+          overflowY: "auto",
+          opacity: visible ? 1 : 0,
+          transition: "all 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
+          textAlign: "center",
+        }}
+      >
+        <style>
+          {`
+            @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
+            .work-menu-item:focus-visible {
+              outline: 2px solid ${colors.coral};
+              outline-offset: 4px;
+              border-radius: 2px;
+            }
+            @media (prefers-reduced-motion: reduce) {
+              .work-menu-panel { transition: opacity 0.15s ease !important; top: 50% !important; }
+            }
+          `}
+        </style>
+
+        <p
+          style={{
+            fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+            fontSize: "12px",
+            fontWeight: "bold",
+            color: colors.coral,
+            letterSpacing: "5px",
+            margin: "0 0 8px 0",
+          }}
+        >
+          MY WORK
+        </p>
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", marginBottom: "24px" }}>
+          <div style={{ width: "36px", height: "2px", backgroundColor: colors.coral }} />
+          <div style={{ width: "6px", height: "6px", backgroundColor: colors.coral, transform: "rotate(45deg)" }} />
+          <div style={{ width: "36px", height: "2px", backgroundColor: colors.coral }} />
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+          {SHOWCASE_PANELS.map((panel, index) => {
+            const isActive = index === activeIndex;
+            return (
+              <button
+                key={panel.key}
+                ref={isActive ? activeItemRef : undefined}
+                className="work-menu-item"
+                onClick={() => onSelect(index)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: "6px 12px",
+                  fontFamily: "'Bebas Neue', Impact, 'Arial Black', sans-serif",
+                  fontSize: "clamp(26px, 4.5vw, 32px)",
+                  fontWeight: "400",
+                  letterSpacing: "3px",
+                  color: isActive ? colors.coral : colors.cream,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "12px",
+                  transition: "color 0.2s ease, transform 0.2s ease",
+                  whiteSpace: "nowrap",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = colors.coral;
+                  e.currentTarget.style.transform = "scale(1.06)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = isActive ? colors.coral : colors.cream;
+                  e.currentTarget.style.transform = "scale(1)";
+                }}
+              >
+                {isActive && <span style={{ width: "7px", height: "7px", backgroundColor: colors.coral, transform: "rotate(45deg)", flexShrink: 0 }} />}
+                {panel.title}
+                {isActive && <span style={{ width: "7px", height: "7px", backgroundColor: colors.coral, transform: "rotate(45deg)", flexShrink: 0 }} />}
+              </button>
+            );
+          })}
+        </div>
+
+        <button
+          onClick={onClose}
+          aria-label="Close menu"
+          style={{
+            position: "absolute",
+            top: "14px",
+            right: "14px",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            padding: "4px",
+            opacity: 0.7,
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.opacity = 1)}
+          onMouseLeave={(e) => (e.currentTarget.style.opacity = 0.7)}
+        >
+          <X size={22} color={colors.cream} />
+        </button>
+      </div>
+    </>
+  );
+}
+
 // Hero Section
-function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) {
+function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel, onOpenWorkMenu }) {
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 768);
   const displayDemoReelUrl = demoReelUrl || portfolioData.demoReelUrl;
 
@@ -3084,6 +3397,8 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) 
         </p>
       </div>
 
+      <HeroWorkMenuButton onClick={onOpenWorkMenu} />
+
         <button
           onClick={handleArrowClick}
           aria-label="Scroll to demo reel"
@@ -3263,24 +3578,547 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel }) 
   );
 }
 
-// Portfolio Grid Section
-// Three-panel showcase: Behind the Scenes | Animation Work | Achievements.
-// Animation Work stays the centre and the default; the side panels are reached
-// by clicking their titles or dragging/swiping horizontally.
+// ============================================
+// GALLERY PANELS (image/video grids for the non-animation categories)
+// ============================================
+
+// Masonry tile for a gallery entry: an image, or a YouTube video shown by its
+// thumbnail with a play badge.
+function GalleryCard({ entry, isAdmin, onEdit, onDelete, onClick }) {
+  const [isHovered, setIsHovered] = useState(false);
+  const thumbnailUrl = entry.imageUrl || getYouTubeThumbnail(entry.youtubeUrl);
+  const isVideo = !entry.imageUrl && !!entry.youtubeUrl;
+
+  return (
+    <div
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        cursor: "pointer",
+        transform: isHovered ? "scale(1.02)" : "scale(1)",
+        transition: "transform 0.3s ease",
+        position: "relative",
+      }}
+    >
+      {isAdmin && (
+        <div style={{ position: "absolute", top: "8px", right: "8px", zIndex: 10, display: "flex", gap: "8px" }}>
+          <button
+            onClick={(e) => { e.stopPropagation(); onEdit(entry); }}
+            style={{ backgroundColor: colors.coral, border: "none", padding: "8px", cursor: "pointer" }}
+          >
+            <Edit size={16} color={colors.cream} />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(entry.id); }}
+            style={{ backgroundColor: colors.charcoal, border: `1px solid ${colors.coral}`, padding: "8px", cursor: "pointer" }}
+          >
+            <Trash2 size={16} color={colors.coral} />
+          </button>
+        </div>
+      )}
+
+      <div
+        onClick={onClick}
+        style={{
+          position: "relative",
+          overflow: "hidden",
+          backgroundColor: colors.charcoal,
+          border: `2px solid ${colors.coral}`,
+        }}
+      >
+        <img
+          src={thumbnailUrl}
+          alt={entry.title}
+          draggable={false}
+          style={{
+            width: "100%",
+            display: "block",
+            transform: isHovered ? "scale(1.08)" : "scale(1)",
+            transition: "transform 0.5s ease",
+          }}
+          onError={(e) => { e.target.style.display = "none"; }}
+        />
+
+        {isVideo && (
+          <div
+            style={{
+              position: "absolute",
+              bottom: "10px",
+              left: "10px",
+              width: "34px",
+              height: "34px",
+              borderRadius: "50%",
+              backgroundColor: `${colors.coral}dd`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 2px 8px rgba(0, 0, 0, 0.4)",
+              pointerEvents: "none",
+            }}
+          >
+            <Play size={16} color={colors.cream} fill={colors.cream} style={{ marginLeft: "2px" }} />
+          </div>
+        )}
+
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: `linear-gradient(to top, ${colors.charcoal}cc, transparent)`,
+            opacity: isHovered ? 1 : 0,
+            transition: "opacity 0.3s ease",
+            display: "flex",
+            alignItems: "flex-end",
+            padding: "14px",
+            pointerEvents: "none",
+          }}
+        >
+          <span
+            style={{
+              color: colors.coral,
+              fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+              fontWeight: "bold",
+              fontSize: "13px",
+              letterSpacing: "1px",
+            }}
+          >
+            VIEW
+          </span>
+        </div>
+      </div>
+
+      <div style={{ marginTop: "10px", display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "8px" }}>
+        <h3
+          style={{
+            fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+            fontSize: "14px",
+            fontWeight: "bold",
+            color: colors.charcoal,
+            margin: 0,
+            letterSpacing: "1px",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {entry.title.toUpperCase()}
+        </h3>
+        {entry.year && (
+          <span style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", color: colors.coral, fontSize: "13px", flexShrink: 0 }}>
+            {entry.year}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Enlarged view of a gallery entry — embedded video or full image plus text.
+function GalleryModal({ entry, onClose }) {
+  const [closeHovered, setCloseHovered] = useState(false);
+
+  if (!entry) return null;
+
+  const embedUrl = entry.youtubeUrl ? getYouTubeEmbedUrl(entry.youtubeUrl) : null;
+
+  return (
+    <>
+      <div
+        onClick={onClose}
+        style={{ position: "fixed", inset: 0, backgroundColor: `${colors.charcoal}ee`, zIndex: 200 }}
+      />
+
+      <div
+        style={{
+          position: "fixed",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: "90%",
+          maxWidth: "760px",
+          zIndex: 201,
+        }}
+      >
+        <div
+          style={{
+            maxHeight: "85vh",
+            display: "flex",
+            flexDirection: "column",
+            backgroundColor: colors.cream,
+            overflowY: "auto",
+            overflowX: "hidden",
+            position: "relative",
+          }}
+        >
+          <button
+            onClick={onClose}
+            onMouseEnter={() => setCloseHovered(true)}
+            onMouseLeave={() => setCloseHovered(false)}
+            aria-label="Close"
+            style={{
+              position: "absolute",
+              top: "12px",
+              right: "12px",
+              backgroundColor: closeHovered ? colors.charcoal : colors.cream,
+              border: `2px solid ${colors.charcoal}`,
+              width: "32px",
+              height: "32px",
+              cursor: "pointer",
+              zIndex: 10,
+              transform: "rotate(45deg)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              transition: "background-color 0.2s ease",
+            }}
+          >
+            <X
+              size={16}
+              color={closeHovered ? colors.coral : colors.charcoal}
+              style={{ transform: "rotate(-45deg)", transition: "color 0.2s ease" }}
+            />
+          </button>
+
+          <div style={{ padding: "24px", display: "flex", flexDirection: "column" }}>
+            {embedUrl ? (
+              <div
+                style={{
+                  width: "100%",
+                  aspectRatio: "16/9",
+                  marginBottom: "16px",
+                  backgroundColor: colors.charcoal,
+                  border: `3px solid ${colors.coral}`,
+                  flexShrink: 0,
+                }}
+              >
+                <iframe
+                  src={embedUrl}
+                  style={{ width: "100%", height: "100%", border: "none" }}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  title={entry.title}
+                />
+              </div>
+            ) : entry.imageUrl ? (
+              <div style={{ marginBottom: "16px", border: `3px solid ${colors.coral}`, backgroundColor: colors.charcoal }}>
+                <img
+                  src={entry.imageUrl}
+                  alt={entry.title}
+                  style={{ width: "100%", maxHeight: "60vh", objectFit: "contain", display: "block" }}
+                />
+              </div>
+            ) : null}
+
+            <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: entry.description ? "12px" : 0, flexWrap: "wrap" }}>
+              <h2
+                style={{
+                  fontFamily: "'Bebas Neue', Impact, 'Arial Black', sans-serif",
+                  fontSize: "28px",
+                  fontWeight: "400",
+                  color: colors.charcoal,
+                  margin: 0,
+                  letterSpacing: "2px",
+                }}
+              >
+                {entry.title.toUpperCase()}
+              </h2>
+              {entry.year && (
+                <span
+                  style={{
+                    fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+                    color: colors.coral,
+                    fontSize: "18px",
+                    fontWeight: "bold",
+                    marginLeft: "auto",
+                  }}
+                >
+                  {entry.year}
+                </span>
+              )}
+            </div>
+
+            {entry.description && (
+              <p
+                style={{
+                  fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+                  color: colors.charcoal,
+                  fontSize: "clamp(15px, 3.5vw, 17px)",
+                  lineHeight: 1.6,
+                  margin: 0,
+                }}
+              >
+                {entry.description}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// Modal form for adding/editing a gallery entry. Needs an image URL or a
+// YouTube URL (or both) so the tile always has something to show.
+function GalleryEntryEditor({ entry, onSave, onClose }) {
+  const [formData, setFormData] = useState(
+    entry || {
+      title: "",
+      year: new Date().getFullYear().toString(),
+      description: "",
+      imageUrl: "",
+      youtubeUrl: "",
+    }
+  );
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!formData.imageUrl.trim() && !formData.youtubeUrl.trim()) {
+      window.alert("Add an image URL or a YouTube URL so the tile has something to show.");
+      return;
+    }
+    onSave({
+      ...formData,
+      id: entry?.id || Date.now(),
+    });
+  };
+
+  const inputStyle = {
+    width: "100%",
+    padding: "12px",
+    marginBottom: "16px",
+    border: `2px solid ${colors.charcoal}`,
+    fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+    fontSize: "14px",
+    boxSizing: "border-box",
+  };
+
+  const labelStyle = {
+    display: "block",
+    marginBottom: "4px",
+    fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+    fontWeight: "bold",
+    fontSize: "12px",
+    color: colors.charcoal,
+    letterSpacing: "1px",
+  };
+
+  return (
+    <>
+      <div onClick={onClose} style={{ position: "fixed", inset: 0, backgroundColor: `${colors.charcoal}99`, zIndex: 300 }} />
+      <div
+        style={{
+          position: "fixed",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          backgroundColor: "rgba(239, 232, 221, 0.75)",
+          backdropFilter: "blur(24px)",
+          WebkitBackdropFilter: "blur(24px)",
+          padding: "40px",
+          borderRadius: "16px",
+          border: `1px solid rgba(252, 119, 83, 0.4)`,
+          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(255, 255, 255, 0.2)",
+          zIndex: 301,
+          width: "90%",
+          maxWidth: "500px",
+          maxHeight: "90vh",
+          overflowY: "auto",
+        }}
+      >
+        <h2 style={{
+          fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+          fontSize: "24px",
+          fontWeight: "bold",
+          color: colors.charcoal,
+          marginBottom: "24px",
+        }}>
+          {entry ? "EDIT ENTRY" : "ADD ENTRY"}
+        </h2>
+
+        <form onSubmit={handleSubmit}>
+          <label style={labelStyle}>TITLE</label>
+          <input
+            type="text"
+            value={formData.title}
+            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+            required
+            style={inputStyle}
+          />
+
+          <label style={labelStyle}>YEAR</label>
+          <input
+            type="text"
+            value={formData.year}
+            onChange={(e) => setFormData({ ...formData, year: e.target.value })}
+            style={inputStyle}
+          />
+
+          <label style={labelStyle}>IMAGE URL</label>
+          <input
+            type="url"
+            value={formData.imageUrl}
+            onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+            placeholder="https://..."
+            style={inputStyle}
+          />
+
+          <label style={labelStyle}>YOUTUBE URL (used if no image, or for video work)</label>
+          <input
+            type="url"
+            value={formData.youtubeUrl}
+            onChange={(e) => setFormData({ ...formData, youtubeUrl: e.target.value })}
+            placeholder="https://www.youtube.com/watch?v=..."
+            style={inputStyle}
+          />
+
+          <label style={labelStyle}>DESCRIPTION (optional)</label>
+          <textarea
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            rows={4}
+            style={{ ...inputStyle, resize: "vertical" }}
+          />
+
+          <button
+            type="submit"
+            style={{
+              width: "100%",
+              padding: "14px",
+              backgroundColor: colors.coral,
+              color: colors.charcoal,
+              border: "none",
+              fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+              fontWeight: "bold",
+              fontSize: "14px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+            }}
+          >
+            <Save size={18} />
+            {entry ? "UPDATE" : "ADD"} ENTRY
+          </button>
+        </form>
+
+        <button
+          onClick={onClose}
+          style={{
+            position: "absolute",
+            top: "12px",
+            right: "12px",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+          }}
+        >
+          <X size={20} color={colors.charcoal} />
+        </button>
+      </div>
+    </>
+  );
+}
+
+// Masonry grid for one gallery category, with admin controls and empty state.
+function GalleryPanel({ entries, isAdmin, columnCount, cardGap, onAdd, onEdit, onDelete, onCardClick, emptyLabel }) {
+  const [addHovered, setAddHovered] = useState(false);
+
+  if (entries.length === 0 && !isAdmin) {
+    return (
+      <div style={{ padding: "60px 20px", textAlign: "center" }}>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: "16px" }}>
+          <div style={{ width: "8px", height: "8px", backgroundColor: colors.coral, transform: "rotate(45deg)" }} />
+        </div>
+        <p style={{
+          fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+          fontSize: "14px",
+          color: colors.charcoal,
+          opacity: 0.55,
+          letterSpacing: "3px",
+          margin: 0,
+        }}>
+          {emptyLabel}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ columnCount: columnCount, columnGap: cardGap }}>
+      {isAdmin && (
+        <div style={{ breakInside: "avoid", marginBottom: cardGap }}>
+          <button
+            onClick={onAdd}
+            onMouseEnter={() => setAddHovered(true)}
+            onMouseLeave={() => setAddHovered(false)}
+            style={{
+              width: "100%",
+              aspectRatio: "16/9",
+              border: `3px dashed ${addHovered ? colors.coral : colors.charcoal}`,
+              backgroundColor: addHovered ? `${colors.coral}22` : "transparent",
+              cursor: "pointer",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "10px",
+              transition: "all 0.3s ease",
+            }}
+          >
+            <Plus size={36} color={addHovered ? colors.coral : colors.charcoal} />
+            <span style={{
+              fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+              fontWeight: "bold",
+              fontSize: "13px",
+              color: addHovered ? colors.coral : colors.charcoal,
+              letterSpacing: "2px",
+            }}>
+              ADD ENTRY
+            </span>
+          </button>
+        </div>
+      )}
+      {entries.map((entry) => (
+        <div key={entry.id} style={{ breakInside: "avoid", marginBottom: cardGap }}>
+          <GalleryCard
+            entry={entry}
+            isAdmin={isAdmin}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            onClick={() => onCardClick(entry)}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Portfolio Showcase Section
+// A sliding carousel of category panels. Animation is the default; the others
+// are reached by clicking their titles, the menus, or dragging/swiping.
 const SHOWCASE_PANELS = [
-  { key: "process", title: "BEHIND THE SCENES" },
-  { key: "work", title: "ANIMATION WORK" },
-  { key: "achievements", title: "ACHIEVEMENTS" },
+  { key: "animation", title: "ANIMATION", type: "animations" },
+  { key: "storyboarding", title: "STORYBOARDING", type: "gallery", emptyLabel: "STORYBOARDS COMING SOON" },
+  { key: "concepts", title: "CONCEPTS", type: "gallery", emptyLabel: "CONCEPT ART COMING SOON" },
+  { key: "graphicDesign", title: "GRAPHIC DESIGN", type: "gallery", emptyLabel: "GRAPHIC DESIGN COMING SOON" },
+  { key: "cad3d", title: "3D & CAD", type: "gallery", emptyLabel: "3D & CAD WORK COMING SOON" },
+  { key: "woodworking", title: "WOODWORKING", type: "gallery", emptyLabel: "WOODWORKING COMING SOON" },
+  { key: "achievements", title: "ACHIEVEMENTS", type: "achievements" },
 ];
 
 function PortfolioSection({
   animations, onCardClick, isAdmin, onAddClick, onEditClick, onDeleteClick,
-  achievements, processEntries, onSideAdd, onSideEdit, onSideDelete,
+  achievements, onAchievementAdd, onAchievementEdit, onAchievementDelete,
+  galleries, onGalleryAdd, onGalleryEdit, onGalleryDelete,
+  activeIndex, onActiveIndexChange,
 }) {
   const [columnCount, setColumnCount] = useState(3);
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 768);
 
-  const [activeIndex, setActiveIndex] = useState(1);
+  // The active panel lives in App state so the category menus can drive it too.
+  const setActiveIndex = onActiveIndexChange;
+  const [galleryModalEntry, setGalleryModalEntry] = useState(null);
   const [dragX, setDragX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [panelHeight, setPanelHeight] = useState(null);
@@ -3452,7 +4290,7 @@ function PortfolioSection({
   );
 
   return (
-    <section style={{ padding: isMobile ? "48px 14px 100px" : "80px 24px 140px", backgroundColor: colors.cream, position: "relative", zIndex: 1, overflow: "hidden" }}>
+    <section id="portfolio-section" style={{ padding: isMobile ? "48px 14px 100px" : "80px 24px 140px", backgroundColor: colors.cream, position: "relative", zIndex: 1, overflow: "hidden", scrollMarginTop: "66px" }}>
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "4px", backgroundColor: colors.coral }} />
 
       <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
@@ -3545,64 +4383,73 @@ function PortfolioSection({
           <div
             style={{
               display: "flex",
-              width: "300%",
-              transform: `translateX(calc(${-activeIndex * (100 / 3)}% + ${dragX}px))`,
+              width: `${SHOWCASE_PANELS.length * 100}%`,
+              transform: `translateX(calc(${-activeIndex * (100 / SHOWCASE_PANELS.length)}% + ${dragX}px))`,
               transition: isDragging ? "none" : "transform 0.45s ease",
             }}
           >
-            {/* Behind the Scenes */}
-            <div style={{ width: `${100 / 3}%`, flexShrink: 0, padding: "0 2px", boxSizing: "border-box", alignSelf: "flex-start" }}>
-              <div ref={(el) => { panelRefs.current[0] = el; }}>
-                <SidePanel
-                  entries={processEntries}
-                  isAdmin={isAdmin}
-                  onAdd={() => onSideAdd("process")}
-                  onEdit={(entry) => onSideEdit("process", entry)}
-                  onDelete={(id) => onSideDelete("process", id)}
-                  emptyLabel="PROCESS WORK COMING SOON"
-                />
-              </div>
-            </div>
+            {SHOWCASE_PANELS.map((panel, index) => (
+              <div
+                key={panel.key}
+                style={{ width: `${100 / SHOWCASE_PANELS.length}%`, flexShrink: 0, padding: "0 2px", boxSizing: "border-box", alignSelf: "flex-start" }}
+              >
+                <div ref={(el) => { panelRefs.current[index] = el; }}>
+                  {panel.type === "animations" && (
+                    <div style={{ columnCount: columnCount, columnGap: cardGap }}>
+                      {isAdmin && (
+                        <div style={{ breakInside: "avoid", marginBottom: cardGap }}>
+                          <AddAnimationButton onClick={onAddClick} />
+                        </div>
+                      )}
+                      {animations.map((animation) => (
+                        <div key={animation.id} style={{ breakInside: "avoid", marginBottom: cardGap }}>
+                          <AnimationCard
+                            animation={animation}
+                            onClick={() => onCardClick(animation)}
+                            lightMode={true}
+                            isAdmin={isAdmin}
+                            onEdit={onEditClick}
+                            onDelete={onDeleteClick}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
-            {/* Animation Work */}
-            <div style={{ width: `${100 / 3}%`, flexShrink: 0, padding: "0 2px", boxSizing: "border-box", alignSelf: "flex-start" }}>
-              <div ref={(el) => { panelRefs.current[1] = el; }} style={{ columnCount: columnCount, columnGap: cardGap }}>
-                {isAdmin && (
-                  <div style={{ breakInside: "avoid", marginBottom: cardGap }}>
-                    <AddAnimationButton onClick={onAddClick} />
-                  </div>
-                )}
-                {animations.map((animation) => (
-                  <div key={animation.id} style={{ breakInside: "avoid", marginBottom: cardGap }}>
-                    <AnimationCard
-                      animation={animation}
-                      onClick={() => onCardClick(animation)}
-                      lightMode={true}
+                  {panel.type === "gallery" && (
+                    <GalleryPanel
+                      entries={galleries[panel.key] || []}
                       isAdmin={isAdmin}
-                      onEdit={onEditClick}
-                      onDelete={onDeleteClick}
+                      columnCount={columnCount}
+                      cardGap={cardGap}
+                      onAdd={() => onGalleryAdd(panel.key)}
+                      onEdit={(entry) => onGalleryEdit(panel.key, entry)}
+                      onDelete={(id) => onGalleryDelete(panel.key, id)}
+                      onCardClick={(entry) => setGalleryModalEntry(entry)}
+                      emptyLabel={panel.emptyLabel}
                     />
-                  </div>
-                ))}
-              </div>
-            </div>
+                  )}
 
-            {/* Achievements */}
-            <div style={{ width: `${100 / 3}%`, flexShrink: 0, padding: "0 2px", boxSizing: "border-box", alignSelf: "flex-start" }}>
-              <div ref={(el) => { panelRefs.current[2] = el; }}>
-                <SidePanel
-                  entries={achievements}
-                  isAdmin={isAdmin}
-                  onAdd={() => onSideAdd("achievements")}
-                  onEdit={(entry) => onSideEdit("achievements", entry)}
-                  onDelete={(id) => onSideDelete("achievements", id)}
-                  emptyLabel="ACHIEVEMENTS COMING SOON"
-                />
+                  {panel.type === "achievements" && (
+                    <SidePanel
+                      entries={achievements}
+                      isAdmin={isAdmin}
+                      onAdd={onAchievementAdd}
+                      onEdit={onAchievementEdit}
+                      onDelete={onAchievementDelete}
+                      emptyLabel="ACHIEVEMENTS COMING SOON"
+                    />
+                  )}
+                </div>
               </div>
-            </div>
+            ))}
           </div>
         </div>
       </div>
+
+      {galleryModalEntry && (
+        <GalleryModal entry={galleryModalEntry} onClose={() => setGalleryModalEntry(null)} />
+      )}
     </section>
   );
 }
@@ -3863,7 +4710,9 @@ function AboutPage({ isAdmin, photoUrl, onEditPhoto, onResetPhoto, bio, onEditBi
 // Home Page
 function HomePage({
   animations, isAdmin, onAddClick, onEditClick, onDeleteClick, demoReelUrl, onEditDemoReel, onResetDemoReel,
-  achievements, processEntries, onSideAdd, onSideEdit, onSideDelete,
+  achievements, onAchievementAdd, onAchievementEdit, onAchievementDelete,
+  galleries, onGalleryAdd, onGalleryEdit, onGalleryDelete,
+  activeCategory, onActiveCategoryChange, onOpenWorkMenu,
 }) {
   const [selectedAnimation, setSelectedAnimation] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -3885,6 +4734,7 @@ function HomePage({
         demoReelUrl={demoReelUrl}
         onEditDemoReel={onEditDemoReel}
         onResetDemoReel={onResetDemoReel}
+        onOpenWorkMenu={onOpenWorkMenu}
       />
       <PortfolioSection
         animations={animations}
@@ -3894,10 +4744,15 @@ function HomePage({
         onEditClick={onEditClick}
         onDeleteClick={onDeleteClick}
         achievements={achievements}
-        processEntries={processEntries}
-        onSideAdd={onSideAdd}
-        onSideEdit={onSideEdit}
-        onSideDelete={onSideDelete}
+        onAchievementAdd={onAchievementAdd}
+        onAchievementEdit={onAchievementEdit}
+        onAchievementDelete={onAchievementDelete}
+        galleries={galleries}
+        onGalleryAdd={onGalleryAdd}
+        onGalleryEdit={onGalleryEdit}
+        onGalleryDelete={onGalleryDelete}
+        activeIndex={activeCategory}
+        onActiveIndexChange={onActiveCategoryChange}
       />
       <AnimationModal
         isOpen={isModalOpen}
@@ -3926,11 +4781,15 @@ export default function App() {
   const [customDemoReelUrl, setCustomDemoReelUrl] = useState(null);
   const [customBio, setCustomBio] = useState(null);
 
-  // Side panel content (Behind the Scenes / Achievements) and its editor.
-  // sideEditor is { collection: "achievements" | "process", entry: object|null }.
+  // Showcase content and navigation. galleries is an object keyed by category
+  // (storyboarding, concepts, ...); activeCategory indexes SHOWCASE_PANELS so
+  // the category menus and the carousel stay in sync.
   const [achievements, setAchievements] = useState([]);
-  const [processEntries, setProcessEntries] = useState([]);
-  const [sideEditor, setSideEditor] = useState(null);
+  const [galleries, setGalleries] = useState({});
+  const [achievementEditor, setAchievementEditor] = useState(null); // { entry: object|null }
+  const [galleryEditor, setGalleryEditor] = useState(null); // { category, entry: object|null }
+  const [activeCategory, setActiveCategory] = useState(0);
+  const [workMenuOpen, setWorkMenuOpen] = useState(false);
 
   // Track if data has been loaded from Firebase
   const firebaseLoadedRef = useRef(false);
@@ -4006,20 +4865,20 @@ export default function App() {
       }
     });
     
-    // Subscribe to side panel content
+    // Subscribe to showcase content
     const unsubAchievements = subscribeToAchievements((data) => {
       if (data && Array.isArray(data)) setAchievements(data);
     });
 
-    const unsubProcess = subscribeToProcessEntries((data) => {
-      if (data && Array.isArray(data)) setProcessEntries(data);
+    const unsubGalleries = subscribeToGalleries((data) => {
+      if (data && typeof data === "object") setGalleries(data);
     });
 
     return () => {
       unsubSettings();
       unsubAnimations();
       unsubAchievements();
-      unsubProcess();
+      unsubGalleries();
     };
   }, []);
 
@@ -4181,52 +5040,97 @@ export default function App() {
     }, 100);
   };
 
-  // === SIDE PANEL CONTENT (Behind the Scenes / Achievements) ===
+  // === ACHIEVEMENTS ===
 
-  const sideCollection = (collection) =>
-    collection === "achievements"
-      ? { entries: achievements, setEntries: setAchievements, save: saveAchievements, label: "achievements" }
-      : { entries: processEntries, setEntries: setProcessEntries, save: saveProcessEntries, label: "process entries" };
-
-  const pushSideEntries = async (collection, entries) => {
-    const { save, label } = sideCollection(collection);
-    const result = await save(entries);
-    if (!result.ok) window.alert(`Couldn't save ${label}.\n\n${result.message}`);
+  const pushAchievements = async (entries) => {
+    const result = await saveAchievements(entries);
+    if (!result.ok) window.alert(`Couldn't save achievements.\n\n${result.message}`);
     return result;
   };
 
-  const handleSideAdd = (collection) => {
-    setSideEditor({ collection, entry: null });
-  };
+  const handleAchievementAdd = () => setAchievementEditor({ entry: null });
+  const handleAchievementEdit = (entry) => setAchievementEditor({ entry });
 
-  const handleSideEdit = (collection, entry) => {
-    setSideEditor({ collection, entry });
-  };
-
-  const handleSideDelete = (collection, id) => {
+  const handleAchievementDelete = (id) => {
     if (window.confirm("Are you sure you want to delete this entry?")) {
-      const { entries, setEntries } = sideCollection(collection);
-      const newEntries = entries.filter(e => e.id !== id);
-      setEntries(newEntries);
+      const newEntries = achievements.filter(e => e.id !== id);
+      setAchievements(newEntries);
       setTimeout(() => {
-        pushSideEntries(collection, newEntries);
+        pushAchievements(newEntries);
       }, 100);
     }
   };
 
-  const handleSideSave = (entry) => {
-    const { collection, entry: editing } = sideEditor;
-    const { entries, setEntries } = sideCollection(collection);
+  const handleAchievementSave = (entry) => {
+    const newEntries = achievementEditor.entry
+      ? achievements.map(e => e.id === entry.id ? entry : e)
+      : [entry, ...achievements];
 
-    const newEntries = editing
-      ? entries.map(e => e.id === entry.id ? entry : e)
-      : [entry, ...entries];
-
-    setEntries(newEntries);
-    setSideEditor(null);
+    setAchievements(newEntries);
+    setAchievementEditor(null);
     setTimeout(() => {
-      pushSideEntries(collection, newEntries);
+      pushAchievements(newEntries);
     }, 100);
+  };
+
+  // === GALLERY CATEGORIES (storyboarding, concepts, ...) ===
+
+  const pushGallery = async (category, entries) => {
+    const result = await saveGallery(category, entries);
+    if (!result.ok) window.alert(`Couldn't save this gallery.\n\n${result.message}`);
+    return result;
+  };
+
+  const handleGalleryAdd = (category) => setGalleryEditor({ category, entry: null });
+  const handleGalleryEdit = (category, entry) => setGalleryEditor({ category, entry });
+
+  const handleGalleryDelete = (category, id) => {
+    if (window.confirm("Are you sure you want to delete this entry?")) {
+      const newEntries = (galleries[category] || []).filter(e => e.id !== id);
+      setGalleries({ ...galleries, [category]: newEntries });
+      setTimeout(() => {
+        pushGallery(category, newEntries);
+      }, 100);
+    }
+  };
+
+  const handleGallerySave = (entry) => {
+    const { category, entry: editing } = galleryEditor;
+    const current = galleries[category] || [];
+    const newEntries = editing
+      ? current.map(e => e.id === entry.id ? entry : e)
+      : [entry, ...current];
+
+    setGalleries({ ...galleries, [category]: newEntries });
+    setGalleryEditor(null);
+    setTimeout(() => {
+      pushGallery(category, newEntries);
+    }, 100);
+  };
+
+  // === CATEGORY MENU ===
+
+  // Selecting a category closes the menu, returns to the home page if needed,
+  // scrolls to the portfolio section, and activates that category's panel.
+  const handleCategorySelect = (index) => {
+    setWorkMenuOpen(false);
+    setActiveCategory(index);
+
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const scrollToPortfolio = () => {
+      document.getElementById("portfolio-section")?.scrollIntoView({
+        behavior: prefersReducedMotion ? "auto" : "smooth",
+        block: "start",
+      });
+    };
+
+    if (currentPage !== "home") {
+      setCurrentPage("home");
+      // Let the home page mount before scrolling to a node inside it.
+      setTimeout(scrollToPortfolio, 80);
+    } else {
+      scrollToPortfolio();
+    }
   };
 
   return (
@@ -4248,6 +5152,7 @@ export default function App() {
         showNavEye={showNavEye}
         showNavName={showNavName}
         onEyeClick={scrollToTop}
+        onOpenWorkMenu={() => setWorkMenuOpen(true)}
       />
       <ScrollIndicator hidden={currentPage === "about"} />
 
@@ -4293,10 +5198,16 @@ export default function App() {
             onEditDemoReel={handleEditDemoReel}
             onResetDemoReel={handleResetDemoReel}
             achievements={achievements}
-            processEntries={processEntries}
-            onSideAdd={handleSideAdd}
-            onSideEdit={handleSideEdit}
-            onSideDelete={handleSideDelete}
+            onAchievementAdd={handleAchievementAdd}
+            onAchievementEdit={handleAchievementEdit}
+            onAchievementDelete={handleAchievementDelete}
+            galleries={galleries}
+            onGalleryAdd={handleGalleryAdd}
+            onGalleryEdit={handleGalleryEdit}
+            onGalleryDelete={handleGalleryDelete}
+            activeCategory={activeCategory}
+            onActiveCategoryChange={setActiveCategory}
+            onOpenWorkMenu={() => setWorkMenuOpen(true)}
           />
         ) : (
           <AboutPage
@@ -4323,14 +5234,26 @@ export default function App() {
           onClose={() => { setShowEditor(false); setEditingAnimation(null); }}
         />
       )}
-      {sideEditor && (
+      {achievementEditor && (
         <SideEntryEditor
-          variant={sideEditor.collection}
-          entry={sideEditor.entry}
-          onSave={handleSideSave}
-          onClose={() => setSideEditor(null)}
+          entry={achievementEditor.entry}
+          onSave={handleAchievementSave}
+          onClose={() => setAchievementEditor(null)}
         />
       )}
+      {galleryEditor && (
+        <GalleryEntryEditor
+          entry={galleryEditor.entry}
+          onSave={handleGallerySave}
+          onClose={() => setGalleryEditor(null)}
+        />
+      )}
+      <CategoryMenu
+        open={workMenuOpen}
+        onClose={() => setWorkMenuOpen(false)}
+        onSelect={handleCategorySelect}
+        activeIndex={activeCategory}
+      />
     </div>
   );
 }
