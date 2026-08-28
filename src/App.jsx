@@ -1513,9 +1513,12 @@ function Navigation({ currentPage, setCurrentPage, showNavEye = false, showNavNa
           }}
           title="Back to Top"
         >
-          {/* Renders at twice `size` wide, so 40 fits the 80px column; at 55
-              it was 110px and spilled into the name beside it. */}
-          <RiveEye size={isMobile ? 40 : 55} />
+          {/* The Rive build only occupies size x 1.2 of layout and paints
+              wider than that, so the column constrains it far less than the
+              SVG fallback (which is a full size x 2 wide) suggests. 48 keeps
+              the eye close to its original weight while the fallback's 96px
+              still sits inside the centre column's slack. */}
+          <RiveEye size={isMobile ? 48 : 55} />
         </button>
       </div>
 
@@ -1812,7 +1815,9 @@ function AboutMeButton({ currentPage, setCurrentPage, onBubbleChange }) {
         }}
         title="About Me"
       >
-        <PersonIcon size={36} color={isHovered ? colors.cream : colors.coral} />
+        {/* Smaller on phones so it sits level with the WORK hamburger beside
+            it rather than towering over it. */}
+        <PersonIcon size={isMobile ? 28 : 36} color={isHovered ? colors.cream : colors.coral} />
       </button>
 
       {isMobile && !isOnAboutPage && (
