@@ -1811,9 +1811,10 @@ function AboutMeButton({ currentPage, setCurrentPage, onBubbleChange }) {
         }}
         title="About Me"
       >
-        {/* Smaller on phones so it sits level with the WORK hamburger beside
-            it rather than towering over it. */}
-        <PersonIcon size={isMobile ? 28 : 36} color={isHovered ? colors.cream : colors.coral} />
+        {/* The glyph fills almost its whole box, so its size is its drawn
+            height. The WORK hamburger beside it stands 19px tall (three 3px
+            bars, two 5px gaps), so 22 matches it instead of towering over it. */}
+        <PersonIcon size={isMobile ? 22 : 36} color={isHovered ? colors.cream : colors.coral} />
       </button>
 
       {isMobile && !isOnAboutPage && (
