@@ -3588,6 +3588,12 @@ function CategoryMenu({ open, onClose, onSelect, activeIndex }) {
 // Hero Section
 function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel, onOpenWorkMenu }) {
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 768);
+  // Below roughly 600px of viewport the intro, the cue and the fixed footer
+  // cannot all fit, and forcing a screenful makes them overlap. Short screens
+  // fall back to ordinary flow: no forced height, no cue.
+  const [hasRoomForCue, setHasRoomForCue] = useState(
+    typeof window === 'undefined' || window.innerHeight >= 600
+  );
   const displayDemoReelUrl = demoReelUrl || portfolioData.demoReelUrl;
 
   // The intro fills the screen on every size and the reel starts below the
@@ -3597,7 +3603,10 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel, on
   const reelRef = useRef(null);
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+      setHasRoomForCue(window.innerHeight >= 600);
+    };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -3698,7 +3707,7 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel, on
       </style>
 
       <div
-        className="hero-viewport"
+        className={hasRoomForCue ? "hero-viewport" : undefined}
         style={{
           display: "flex",
           flexDirection: "column",
@@ -3710,7 +3719,10 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel, on
           // (which differs between mobile and desktop).
           justifyContent: "center",
           position: "relative",
-          paddingBottom: "150px",
+          // Phones get a smaller reserve. At 150 the composition was pinned
+          // near the top of the screen (22px above it, 162px below) and all
+          // that slack read as dead space between the intro and the reel.
+          paddingBottom: hasRoomForCue ? (isMobile ? "84px" : "150px") : "24px",
           "--hero-offset": `${(isAdmin ? 100 : 64) + (isMobile ? 20 : 40)}px`,
         }}
       >
@@ -3841,19 +3853,23 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel, on
 
       <HeroWorkMenuButton onClick={onOpenWorkMenu} />
 
+        {hasRoomForCue && (
         <button
           onClick={handleArrowClick}
           aria-label="Scroll to demo reel"
           style={{
             position: "absolute",
-            // Clears the fixed footer (72px tall plus its own safe-area
-            // padding), which would otherwise sit on top of the cue.
-            bottom: "calc(88px + env(safe-area-inset-bottom))",
+            // Sits in the band between the composition and the fixed footer
+            // (72px tall plus its own safe-area padding), which would
+            // otherwise cover it.
+            bottom: isMobile
+              ? "calc(76px + env(safe-area-inset-bottom))"
+              : "calc(88px + env(safe-area-inset-bottom))",
             left: "50%",
             transform: "translateX(-50%)",
             background: "none",
             border: "none",
-            padding: "12px",
+            padding: isMobile ? "8px" : "12px",
             cursor: "pointer",
             opacity: showArrow ? 1 : 0,
             pointerEvents: showArrow ? "auto" : "none",
@@ -3863,8 +3879,8 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel, on
         >
           <svg
             className="hero-arrow-bob"
-            width="36"
-            height="36"
+            width={isMobile ? 30 : 36}
+            height={isMobile ? 30 : 36}
             viewBox="0 0 24 24"
             fill="none"
             stroke={colors.coral}
@@ -3875,6 +3891,7 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel, on
             <polyline points="6 9 12 15 18 9" />
           </svg>
         </button>
+        )}
       </div>
 
       {/* Demo Reel Section */}
@@ -3883,7 +3900,9 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel, on
         style={{
           width: "100%",
           maxWidth: "750px",
-          marginTop: "35px",
+          // Phones already carry a screenful of intro above this; the reel only
+          // needs to clear the fold, not add more empty space to it.
+          marginTop: isMobile ? "8px" : "35px",
           position: "relative",
           opacity: reelVisible ? 1 : 0,
           transform: reelVisible ? "translateY(0)" : "translateY(18px)",
