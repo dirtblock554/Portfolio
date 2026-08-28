@@ -361,7 +361,12 @@ function RiveEye({ size = 60 }) {
           transition: "opacity 0.3s ease",
           top: "50%",
           left: "50%",
-          transform: "translate(-50%, -50%)",
+          // The canvas is centred on its container, but the eye sits slightly
+          // high within the Rive artboard, so it reads as riding above the
+          // name beside it. 4px down corrects the artwork, not the layout —
+          // hence the nudge here rather than on the container, which would
+          // also drag the correctly-centred SVG fallback off its line.
+          transform: "translate(-50%, calc(-50% + 4px))",
         }}
       />
     </div>
