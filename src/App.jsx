@@ -836,13 +836,13 @@ function WavyBackground() {
 // ============================================
 // SVG ICONS
 // ============================================
-function EyeLogo({ size = 48, color = colors.coral, secondaryColor = colors.cream }) {
+// Stand-in for the Rive eye while it loads, and permanently if it fails to.
+// Drawn to match it: a solid cream almond with a coral-outlined iris.
+function EyeLogo({ size = 48, color = colors.coral, secondaryColor = colors.cream, irisColor = colors.charcoal }) {
   return (
   <svg width={size} height={size * 0.5} viewBox="0 0 120 60" fill="none">
-    <path d="M10 30 Q 60 -5, 110 30 Q 60 65, 10 30" stroke={secondaryColor} strokeWidth="2.5" fill="none" />
-    <path d="M25 30 Q 60 8, 95 30 Q 60 52, 25 30" stroke={secondaryColor} strokeWidth="1.5" fill="none" />
-    <circle cx="60" cy="30" r="12" stroke={secondaryColor} strokeWidth="2" fill="none" />
-    <circle cx="60" cy="30" r="6" fill={color} />
+    <path d="M10 30 Q 60 -5, 110 30 Q 60 65, 10 30 Z" fill={secondaryColor} />
+    <circle cx="60" cy="30" r="13" fill={irisColor} stroke={color} strokeWidth="4" />
   </svg>
   );
 }
@@ -860,16 +860,12 @@ function PlayEye({ size = 60 }) {
   );
 }
 
+// Same mark as EyeLogo at hero scale, with the proportions carried across.
 function EyeLogoLarge({ size = 200 }) {
   return (
   <svg width={size} height={size * 0.5} viewBox="0 0 200 100" fill="none">
-    <path d="M5 50 Q 100 -15, 195 50 Q 100 115, 5 50" stroke={colors.cream} strokeWidth="2" fill="none" />
-    <path d="M20 50 Q 100 5, 180 50 Q 100 95, 20 50" stroke={colors.cream} strokeWidth="1.5" fill="none" />
-    <path d="M35 50 Q 100 18, 165 50 Q 100 82, 35 50" stroke={colors.cream} strokeWidth="1" fill="none" />
-    <circle cx="100" cy="50" r="22" stroke={colors.cream} strokeWidth="2" fill="none" />
-    <circle cx="100" cy="50" r="16" stroke={colors.cream} strokeWidth="1" fill="none" />
-    <circle cx="100" cy="50" r="10" fill={colors.coral} />
-    <circle cx="104" cy="46" r="3" fill={colors.cream} opacity="0.6" />
+    <path d="M5 50 Q 100 -15, 195 50 Q 100 115, 5 50 Z" fill={colors.cream} />
+    <circle cx="100" cy="50" r="25" fill={colors.charcoal} stroke={colors.coral} strokeWidth="8" />
   </svg>
   );
 }
