@@ -1465,7 +1465,10 @@ function Navigation({ currentPage, setCurrentPage, showNavEye = false, showNavNa
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const sideWidth = isMobile ? "92px" : "100px";
+  // Both side columns share a width so the centred name lands on the true
+  // centre of the screen. 80px is what the right column's WORK + ABOUT
+  // controls actually measure, and it's enough for the eye at its mobile size.
+  const sideWidth = isMobile ? "80px" : "100px";
 
   return (
     <nav
@@ -1477,7 +1480,9 @@ function Navigation({ currentPage, setCurrentPage, showNavEye = false, showNavNa
         backgroundColor: `${colors.charcoal}ee`,
         backdropFilter: "blur(10px)",
         borderBottom: `2px solid ${colors.coral}`,
-        padding: "8px 24px",
+        // Phones need the side margin back as usable width — at 24px the
+        // three columns couldn't fit and the name was cut off.
+        padding: isMobile ? "8px 12px" : "8px 24px",
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
@@ -1508,7 +1513,9 @@ function Navigation({ currentPage, setCurrentPage, showNavEye = false, showNavNa
           }}
           title="Back to Top"
         >
-          <RiveEye size={55} />
+          {/* Renders at twice `size` wide, so 40 fits the 80px column; at 55
+              it was 110px and spilled into the name beside it. */}
+          <RiveEye size={isMobile ? 40 : 55} />
         </button>
       </div>
 
@@ -1529,7 +1536,8 @@ function Navigation({ currentPage, setCurrentPage, showNavEye = false, showNavNa
           overflow: "hidden",
           cursor: showNavName ? "pointer" : "default",
           pointerEvents: showNavName ? "auto" : "none",
-          marginTop: isMobile ? "4px" : "0", // Push text down slightly on mobile
+          // No nudge: the nav centres its columns, so anything added here only
+          // knocks the name out of line with the eye.
         }}
       >
         <style>
@@ -1551,7 +1559,10 @@ function Navigation({ currentPage, setCurrentPage, showNavEye = false, showNavNa
       </div>
 
       {/* Right container */}
-      <div style={{ width: sideWidth, flexShrink: 0, display: "flex", justifyContent: "flex-end", alignItems: "center", gap: isMobile ? "6px" : "10px" }}>
+      {/* On phones the two stacks are bottom-aligned so WORK and ABOUT sit on
+          one line; centring them left the labels 8px apart, since the icons
+          above them are different heights. */}
+      <div style={{ width: sideWidth, flexShrink: 0, display: "flex", justifyContent: "flex-end", alignItems: isMobile ? "flex-end" : "center", gap: isMobile ? "6px" : "10px" }}>
         <WorkMenuButton
           onClick={onOpenWorkMenu}
           shifted={aboutBubbleVisible}
