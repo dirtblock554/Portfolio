@@ -3717,12 +3717,20 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel, on
           // for the scroll cue. The offset matches <main>'s nav clearance
           // (which grows in admin mode) plus this section's own top padding
           // (which differs between mobile and desktop).
-          justifyContent: "center",
+          // Phones spread the composition across the screenful so the slack
+          // becomes breathing room between the eye, name, tagline and menu
+          // rather than a void underneath them. Element sizes are untouched.
+          // That also makes the gap to the reel roughly constant instead of
+          // growing with screen height. Desktop stays centred.
+          justifyContent: isMobile && hasRoomForCue ? "space-between" : "center",
           position: "relative",
           // Phones get a smaller reserve. At 150 the composition was pinned
           // near the top of the screen (22px above it, 162px below) and all
           // that slack read as dead space between the intro and the reel.
-          paddingBottom: hasRoomForCue ? (isMobile ? "84px" : "150px") : "24px",
+          // On phones this reserve is what the spread composition stops above,
+          // so it has to clear the cue's whole band: 76px up from the bottom
+          // plus the cue's own 46px, plus a little breathing room.
+          paddingBottom: hasRoomForCue ? (isMobile ? "132px" : "150px") : "24px",
           "--hero-offset": `${(isAdmin ? 100 : 64) + (isMobile ? 20 : 40)}px`,
         }}
       >
@@ -3794,6 +3802,9 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel, on
         </h1>
       </div>
 
+      {/* Rule and tagline travel together: when the intro spreads to fill a
+          tall phone screen, the slack goes around this pair, not between them. */}
+      <div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center" }}>
       <div
         style={{
           display: "flex",
@@ -3851,6 +3862,8 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel, on
         </p>
       </div>
 
+      </div>
+
       <HeroWorkMenuButton onClick={onOpenWorkMenu} />
 
         {hasRoomForCue && (
@@ -3902,7 +3915,7 @@ function HeroSection({ isAdmin, demoReelUrl, onEditDemoReel, onResetDemoReel, on
           maxWidth: "750px",
           // Phones already carry a screenful of intro above this; the reel only
           // needs to clear the fold, not add more empty space to it.
-          marginTop: isMobile ? "8px" : "35px",
+          marginTop: isMobile ? "0px" : "35px",
           position: "relative",
           opacity: reelVisible ? 1 : 0,
           transform: reelVisible ? "translateY(0)" : "translateY(18px)",
