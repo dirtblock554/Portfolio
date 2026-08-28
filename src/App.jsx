@@ -1238,50 +1238,12 @@ function ScrollIndicator({ hidden = false }) {
 function Footer({ onAdminClick, isAdmin }) {
   const [emailCopied, setEmailCopied] = useState(false);
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 768);
-  const [hidden, setHidden] = useState(false);
-  const lastScrollY = useRef(typeof window !== 'undefined' ? window.scrollY : 0);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-
-  // Hide footer on scroll-down, reveal on scroll-up - mobile only, to keep focus on artwork
-  useEffect(() => {
-    if (!isMobile) {
-      setHidden(false);
-      return;
-    }
-
-    lastScrollY.current = window.scrollY;
-    let accumulated = 0;
-    const TOGGLE_THRESHOLD = 40;
-
-    const handleScroll = () => {
-      const currentScrollY = Math.max(window.scrollY, 0);
-      const diff = currentScrollY - lastScrollY.current;
-      lastScrollY.current = currentScrollY;
-
-      // Reset the accumulator whenever the scroll direction reverses,
-      // so a brief change of direction doesn't carry over stale momentum.
-      if ((diff > 0 && accumulated < 0) || (diff < 0 && accumulated > 0)) {
-        accumulated = 0;
-      }
-      accumulated += diff;
-
-      if (accumulated > TOGGLE_THRESHOLD && currentScrollY > 150) {
-        setHidden(true);
-        accumulated = 0;
-      } else if (accumulated < -TOGGLE_THRESHOLD || currentScrollY <= 150) {
-        setHidden(false);
-        accumulated = 0;
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [isMobile]);
 
   const handleEmailClick = (e) => {
     e.preventDefault();
@@ -1295,7 +1257,7 @@ function Footer({ onAdminClick, isAdmin }) {
 
   return (
     <>
-    {/* Always-on strip covering the home-indicator safe area, independent of the footer's hide/show animation */}
+    {/* Strip covering the home-indicator safe area beneath the footer */}
     <div
       style={{
         position: "fixed",
@@ -1324,8 +1286,6 @@ function Footer({ onAdminClick, isAdmin }) {
         alignItems: "center",
         zIndex: 100,
         fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
-        transform: isMobile && hidden ? "translateY(100%)" : "translateY(0)",
-        transition: "transform 0.3s ease",
       }}
     >
       <style>
