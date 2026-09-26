@@ -750,7 +750,7 @@ function WavyBackground() {
         const dx = x - point.x;
         const dy = baseY - point.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        const age = (Date.now() - point.time) / 1000;
+        const age = (now - point.time) / 1000;
         const maxRadius = 400;
         if (dist < maxRadius) {
           const ripple =
@@ -762,16 +762,25 @@ function WavyBackground() {
         }
       });
 
-      touchPointsRef.current = touchPointsRef.current.filter((point) => {
-        return Date.now() - point.time < 3000;
-      });
-
       return y;
     };
+
+    // `now` is read once per frame and handed to getWaveY, which runs for
+    // every 4px of every wave — thousands of times a frame. Expiring the
+    // ripple list here rather than inside that function keeps it to one pass
+    // instead of one array allocation per pixel.
+    let now = Date.now();
 
     const generateWaves = (time) => {
       const width = canvas.width;
       const height = canvas.height;
+
+      now = Date.now();
+      if (touchPointsRef.current.length > 0) {
+        touchPointsRef.current = touchPointsRef.current.filter(
+          (point) => now - point.time < 3000
+        );
+      }
 
       ctx.fillStyle = colors.charcoal;
       ctx.fillRect(0, 0, width, height);
@@ -1114,18 +1123,43 @@ function ScrollIndicator({ hidden = false }) {
   const trackRef = useRef(null);
 
   useEffect(() => {
-    const handleScroll = () => {
-      if (isDragging) return;
-      const scrollTop = window.scrollY;
-      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
-      const progress = docHeight > 0 ? scrollTop / docHeight : 0;
+    // The scroll handler used to read scrollHeight on every event, which
+    // forces a synchronous layout mid-scroll. The height is cached and
+    // re-measured only when the document actually resizes, and the state
+    // update is throttled to one per frame.
+    let frame = null;
+    let docHeight = 0;
+
+    const measure = () => {
+      docHeight = document.documentElement.scrollHeight - window.innerHeight;
+    };
+
+    const update = () => {
+      frame = null;
+      const progress = docHeight > 0 ? window.scrollY / docHeight : 0;
       setScrollProgress(Math.min(Math.max(progress, 0), 1));
     };
 
-    window.addEventListener("scroll", handleScroll);
-    handleScroll();
+    const handleScroll = () => {
+      if (isDragging || frame !== null) return;
+      frame = requestAnimationFrame(update);
+    };
 
-    return () => window.removeEventListener("scroll", handleScroll);
+    measure();
+    update();
+
+    // Content arriving later (images, entries loaded from Firebase) changes
+    // the page height, so the cache has to follow it.
+    const observer = new ResizeObserver(measure);
+    observer.observe(document.documentElement);
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      observer.disconnect();
+      if (frame !== null) cancelAnimationFrame(frame);
+    };
   }, [isDragging]);
 
   useEffect(() => {
@@ -1905,6 +1939,8 @@ function AnimationCard({ animation, onClick, lightMode = false, isAdmin = false,
         <img
           src={thumbnailUrl}
           alt={animation.title}
+          loading="lazy"
+          decoding="async"
           style={{
             width: "100%",
             height: "100%",
@@ -2827,11 +2863,13 @@ function MediaUploader({ media, onChange, collection, entryId, onUploadingChange
         {media.map((item, index) => (
           <div key={index} style={tileStyle}>
             {item.type === "image" ? (
-              <img src={item.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              <img src={item.url} alt="" loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
             ) : (
               <img
                 src={getYouTubeThumbnail(item.url)}
                 alt=""
+                loading="lazy"
+                decoding="async"
                 style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: 0.7 }}
               />
             )}
@@ -3109,6 +3147,8 @@ function EntryDetailModal({ entry, onClose, showCategory }) {
                     <img
                       key={index}
                       src={item.url}
+                      loading="lazy"
+                      decoding="async"
                       alt={`${entry.title} ${index + 1}`}
                       style={{ width: "100%", display: "block", border: `2px solid ${colors.charcoal}`, boxSizing: "border-box" }}
                     />
@@ -3175,6 +3215,8 @@ function AchievementCard({ entry, isAdmin, onEdit, onDelete, onClick }) {
           <img
             src={thumbnail.type === "image" ? thumbnail.url : getYouTubeThumbnail(thumbnail.url)}
             alt=""
+            loading="lazy"
+            decoding="async"
             style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
           />
           {photoCount > 1 && (
@@ -4241,6 +4283,8 @@ function GalleryCard({ entry, isAdmin, onEdit, onDelete, onClick }) {
           src={thumbnailUrl}
           alt={entry.title}
           draggable={false}
+          loading="lazy"
+          decoding="async"
           style={{
             width: "100%",
             display: "block",
@@ -5322,7 +5366,13 @@ export default function App() {
 
   // Track hero eye and name visibility for nav toggle
   useEffect(() => {
-    const handleScroll = () => {
+    // Two getBoundingClientRect reads per scroll event force a layout each
+    // time. Throttling to one frame keeps that to at most once per repaint,
+    // and the listener is passive so it never blocks the scroll itself.
+    let frame = null;
+
+    const update = () => {
+      frame = null;
       const heroEye = document.getElementById("hero-eye");
       const heroName = document.getElementById("hero-name");
 
@@ -5343,10 +5393,18 @@ export default function App() {
       }
     };
 
-    window.addEventListener("scroll", handleScroll);
-    handleScroll();
+    const handleScroll = () => {
+      if (frame !== null) return;
+      frame = requestAnimationFrame(update);
+    };
 
-    return () => window.removeEventListener("scroll", handleScroll);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    update();
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      if (frame !== null) cancelAnimationFrame(frame);
+    };
   }, [currentPage]);
 
   const scrollToTop = () => {
