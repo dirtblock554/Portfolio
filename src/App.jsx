@@ -4608,6 +4608,9 @@ function PortfolioSection({
   const [panelHeight, setPanelHeight] = useState(null);
   const panelRefs = useRef([]);
   const sliderRef = useRef(null);
+  // The swipe is bound to this wrapper rather than the slider so the gesture
+  // also works across the title and its chevrons, not just the entries below.
+  const swipeAreaRef = useRef(null);
   const dragState = useRef({ pointerId: null, startX: 0, startY: 0, dragging: false, suppressClick: false });
 
   useEffect(() => {
@@ -4645,7 +4648,7 @@ function PortfolioSection({
   // events keep flowing. React registers touch listeners as passive, so this
   // has to be a native non-passive listener.
   useEffect(() => {
-    const node = sliderRef.current;
+    const node = swipeAreaRef.current;
     if (!node) return;
 
     const onTouchMove = (e) => {
@@ -4777,7 +4780,27 @@ function PortfolioSection({
     <section id="portfolio-section" style={{ padding: isMobile ? "48px 14px 100px" : "80px 24px 140px", backgroundColor: colors.cream, position: "relative", zIndex: 1, overflow: "hidden", scrollMarginTop: "66px" }}>
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "4px", backgroundColor: colors.coral }} />
 
-      <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
+      <div
+        ref={swipeAreaRef}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        onDragStart={(e) => e.preventDefault()}
+        onClickCapture={(e) => {
+          if (dragState.current.suppressClick) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }}
+        style={{
+          maxWidth: "1200px",
+          margin: "0 auto",
+          touchAction: "pan-y",
+          userSelect: isDragging ? "none" : "auto",
+          WebkitUserSelect: isDragging ? "none" : "auto",
+        }}
+      >
         <div style={{ display: "flex", justifyContent: "center", marginBottom: "20px" }}>
           <GeometricBorder width={150} color={colors.charcoal} />
         </div>
@@ -4843,22 +4866,8 @@ function PortfolioSection({
 
         <div
           ref={sliderRef}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={endDrag}
-          onPointerCancel={endDrag}
-          onDragStart={(e) => e.preventDefault()}
-          onClickCapture={(e) => {
-            if (dragState.current.suppressClick) {
-              e.preventDefault();
-              e.stopPropagation();
-            }
-          }}
           style={{
             overflow: "hidden",
-            touchAction: "pan-y",
-            userSelect: isDragging ? "none" : "auto",
-            WebkitUserSelect: isDragging ? "none" : "auto",
             height: panelHeight != null ? `${panelHeight}px` : "auto",
             transition: isDragging ? "none" : "height 0.45s ease",
             cursor: isDragging ? "grabbing" : "auto",
