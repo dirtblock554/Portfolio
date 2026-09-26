@@ -2610,6 +2610,130 @@ function AddAnimationButton({ onClick }) {
 
 const ACHIEVEMENT_CATEGORIES = ["Award", "Achievement", "Experience", "Commission"];
 
+// Labelled outbound links on an entry — a showcase page, a live build, an
+// article. Kept in their own `links` array rather than inside `media` so they
+// render as a short list under the write-up instead of joining the photo
+// stack. Entries saved before this existed simply have no `links` key.
+function LinksEditor({ links, onChange }) {
+  const [label, setLabel] = useState("");
+  const [url, setUrl] = useState("");
+
+  const entries = links || [];
+
+  const addLink = () => {
+    const trimmedUrl = url.trim();
+    if (!trimmedUrl) return;
+    // An unlabelled link still needs something clickable, so it falls back to
+    // showing its own URL.
+    onChange([...entries, { label: label.trim() || trimmedUrl, url: trimmedUrl }]);
+    setLabel("");
+    setUrl("");
+  };
+
+  const removeLink = (index) => onChange(entries.filter((_, i) => i !== index));
+
+  const fieldStyle = {
+    padding: "10px 12px",
+    border: `2px solid ${colors.charcoal}`,
+    fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+    fontSize: "14px",
+    boxSizing: "border-box",
+    minWidth: 0,
+  };
+
+  return (
+    <div style={{ marginBottom: "16px" }}>
+      {entries.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "12px" }}>
+          {entries.map((link, index) => (
+            <div
+              key={index}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                padding: "8px 10px",
+                border: `1px solid ${colors.charcoal}44`,
+                backgroundColor: `${colors.charcoal}08`,
+              }}
+            >
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: "13px", fontWeight: "bold", color: colors.charcoal }}>
+                  {link.label}
+                </div>
+                <div
+                  style={{
+                    fontSize: "11px",
+                    color: colors.charcoal,
+                    opacity: 0.6,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {link.url}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => removeLink(index)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: "4px",
+                  flexShrink: 0,
+                }}
+                aria-label={`Remove ${link.label}`}
+              >
+                <X size={16} color={colors.charcoal} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+        <input
+          type="text"
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          placeholder="Label (e.g. View on ETHGlobal)"
+          style={{ ...fieldStyle, flex: "1 1 160px" }}
+        />
+        <input
+          type="url"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="https://..."
+          style={{ ...fieldStyle, flex: "1 1 160px" }}
+        />
+        {/* type="button" matters: this sits inside the entry form and must not
+            submit it. */}
+        <button
+          type="button"
+          onClick={addLink}
+          disabled={!url.trim()}
+          style={{
+            padding: "10px 18px",
+            backgroundColor: url.trim() ? colors.charcoal : `${colors.charcoal}55`,
+            color: colors.cream,
+            border: "none",
+            fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+            fontWeight: "bold",
+            fontSize: "13px",
+            letterSpacing: "1px",
+            cursor: url.trim() ? "pointer" : "not-allowed",
+            flexShrink: 0,
+          }}
+        >
+          ADD
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // Photo upload + optional video-link picker, shared by every entry editor.
 // Uploads go straight to Firebase Storage under entry-media/<collection>/<entryId>/
 // so admins attach real photos instead of hosting images elsewhere and
@@ -2920,13 +3044,51 @@ function EntryDetailModal({ entry, onClose, showCategory }) {
               </p>
             )}
 
+            {entry.links?.length > 0 && (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "flex-start",
+                  gap: "10px",
+                  marginTop: entry.description ? "24px" : 0,
+                }}
+              >
+                {entry.links.map((link, index) => (
+                  <a
+                    key={index}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+                      fontSize: "14px",
+                      fontWeight: "bold",
+                      letterSpacing: "1px",
+                      color: colors.charcoal,
+                      textDecoration: "none",
+                      padding: "8px 14px",
+                      border: `2px solid ${colors.coral}`,
+                      backgroundColor: `${colors.coral}22`,
+                      maxWidth: "100%",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {link.label || link.url} ↗
+                  </a>
+                ))}
+              </div>
+            )}
+
             {entry.media?.length > 0 && (
               <div
                 style={{
                   display: "flex",
                   flexDirection: "column",
                   gap: "16px",
-                  marginTop: entry.description ? "24px" : 0,
+                  marginTop: entry.description || entry.links?.length ? "24px" : 0,
                 }}
               >
                 {entry.media.map((item, index) =>
@@ -3212,6 +3374,12 @@ function AchievementEditor({ entry, onSave, onClose }) {
             rows={5}
             required
             style={{ ...inputStyle, resize: "vertical" }}
+          />
+
+          <label style={labelStyle}>LINKS</label>
+          <LinksEditor
+            links={formData.links || []}
+            onChange={(links) => setFormData({ ...formData, links })}
           />
 
           <label style={labelStyle}>PHOTOS / VIDEO</label>
@@ -4277,6 +4445,12 @@ function GalleryEntryEditor({ entry, category, onSave, onClose }) {
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             rows={4}
             style={{ ...inputStyle, resize: "vertical" }}
+          />
+
+          <label style={labelStyle}>LINKS</label>
+          <LinksEditor
+            links={formData.links || []}
+            onChange={(links) => setFormData({ ...formData, links })}
           />
 
           <label style={labelStyle}>PHOTOS / VIDEO</label>
